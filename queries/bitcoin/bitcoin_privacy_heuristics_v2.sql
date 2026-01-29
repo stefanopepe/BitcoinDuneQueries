@@ -18,9 +18,10 @@
 --   2. change_script_type  - Change detected via script type mismatch
 --   3. uih1                - Unnecessary Input Heuristic 1 (smallest input covers smallest output)
 --   4. uih2                - Unnecessary Input Heuristic 2 (smallest input covers largest output)
---   5. address_reuse       - Output script matches an input script
---   6. no_privacy_issues   - No heuristics triggered
--- Note: coinjoin_detected and self_transfer are handled by UTXO Heuristics layer
+--   5. coinjoin_detected   - CoinJoin pattern (≥50% equal outputs, 2-5+ matching)
+--   6. self_transfer       - Single output, no change (wallet consolidation/self-send)
+--   7. address_reuse       - Output script matches an input script
+--   8. no_privacy_issues   - No heuristics triggered
 -- ============================================================
 -- Output Columns:
 --   day                   - Date of transactions
@@ -171,9 +172,22 @@ two_output_details AS (
     GROUP BY o.day, o.tx_id
 ),
 
--- Note: CoinJoin detection removed - handled by UTXO Heuristics (coinjoin_like)
+-- 10) Detect CoinJoin patterns: multiple equal outputs
+coinjoin_detection AS (
+    SELECT
+        day,
+        tx_id,
+        COUNT(*) AS total_outputs,
+        MAX(value_count) AS max_equal_outputs
+    FROM (
+        SELECT day, tx_id, output_value, COUNT(*) AS value_count
+        FROM raw_outputs
+        GROUP BY day, tx_id, output_value
+    )
+    GROUP BY day, tx_id
+),
 
--- 10) Detect address reuse: output address matches input address (filtered to "other" only)
+-- 11) Detect address reuse: output address matches input address (filtered to "other" only)
 address_reuse_detection AS (
     SELECT DISTINCT
         ri.day,
@@ -212,11 +226,15 @@ tx_combined AS (
         tod.out2_value,
         tod.out1_type,
         tod.out2_type,
+        -- CoinJoin metrics
+        COALESCE(cj.total_outputs, 0) AS cj_total_outputs,
+        COALESCE(cj.max_equal_outputs, 0) AS cj_max_equal_outputs,
         -- Address reuse
         COALESCE(ar.has_address_reuse, FALSE) AS has_address_reuse
     FROM tx_input_stats i
     LEFT JOIN tx_output_stats o ON i.day = o.day AND i.tx_id = o.tx_id
     LEFT JOIN two_output_details tod ON i.day = tod.day AND i.tx_id = tod.tx_id
+    LEFT JOIN coinjoin_detection cj ON i.day = cj.day AND i.tx_id = cj.tx_id
     LEFT JOIN address_reuse_detection ar ON i.day = ar.day AND i.tx_id = ar.tx_id
 ),
 
@@ -276,8 +294,17 @@ classified AS (
             -- Skip malformed transactions
             WHEN output_count = 0 THEN 'malformed'
 
-            -- Note: coinjoin_detected removed - handled by UTXO Heuristics (coinjoin_like)
-            -- Note: self_transfer removed - handled by UTXO Heuristics (self_transfer)
+            -- CoinJoin Detection: ≥50% of outputs are equal, with at least 2-5 matching
+            -- Multiple inputs required
+            WHEN input_count >= 2
+                 AND cj_total_outputs >= 2
+                 AND cj_max_equal_outputs >= 2
+                 AND CAST(cj_max_equal_outputs AS DOUBLE) / NULLIF(CAST(cj_total_outputs AS DOUBLE), 0) >= 0.5
+                 AND cj_max_equal_outputs >= LEAST(GREATEST(2, cj_total_outputs / 2), 5)
+            THEN 'coinjoin_detected'
+
+            -- Self-Transfer: Single output (no change), potential consolidation
+            WHEN output_count = 1 THEN 'self_transfer'
 
             -- For 2-output transactions, apply change detection heuristics
             -- Change via Precision Loss: ≥3 digit difference in trailing zeros
