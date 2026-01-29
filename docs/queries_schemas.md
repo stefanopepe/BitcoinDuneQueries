@@ -12,6 +12,7 @@ This document provides an overview of all SQL queries in the `/queries/` directo
 - [Query Index](#query-index)
 - [Bitcoin Queries](#bitcoin-queries)
   - [bitcoin_intent_heuristics.sql](#bitcoin_intent_heuristicssql)
+  - [bitcoin_privacy_heuristics_v2.sql](#bitcoin_privacy_heuristics_v2sql)
 
 ---
 
@@ -41,6 +42,7 @@ queries/
 | Query | Blockchain | Description | Tables Used |
 |-------|------------|-------------|-------------|
 | [bitcoin_intent_heuristics.sql](#bitcoin_intent_heuristicssql) | Bitcoin | Classifies transactions by intent patterns | `bitcoin.inputs`, `bitcoin.outputs` |
+| [bitcoin_privacy_heuristics_v2.sql](#bitcoin_privacy_heuristics_v2sql) | Bitcoin | Detects privacy issues using Esplora-style heuristics | `bitcoin.inputs`, `bitcoin.outputs` |
 
 ---
 
