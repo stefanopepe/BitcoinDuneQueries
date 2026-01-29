@@ -1,12 +1,13 @@
 -- ============================================================
--- Query: Bitcoin Transaction Intent Heuristics
+-- Query: Bitcoin UTXO Heuristics
 -- Description: Classifies Bitcoin transactions by intent using
 --              input/output patterns (consolidation, fan-out batch,
 --              coinjoin-like, self-transfer, change-like, other).
 --              Uses incremental processing with 1-day lookback.
 -- Author: stefanopepe
 -- Created: 2026-01-28
--- Updated: 2026-01-28
+-- Updated: 2026-01-29
+-- Dune Link: https://dune.com/queries/6614095/
 -- Note: On first run, only processes data from fallback date onwards.
 --       Adjust DATE '2026-01-01' in checkpoint CTE for historical analysis.
 -- ============================================================

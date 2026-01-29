@@ -33,25 +33,19 @@ This repository follows a structured pipeline for developing and validating Dune
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  2. DUNE AI PROMPT WRITING                                                  │
-│     Write prompts for Dune AI (Wand Create/Edit/Debug)                      │
+│  2. QUERY WRITING                                                           │
+│     Write SQL queries directly in Claude Code                               │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  3. CODE REFINEMENT                                                         │
-│     Copy Dune AI output to Claude Code for review and enhancement           │
+│  3. VALIDATION (DRY RUN / SMOKE TEST)                                       │
+│     Test queries to catch errors and verify correctness                     │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  4. VALIDATION (DRY RUN / SMOKE TEST)                                       │
-│     Test queries to catch hallucinations and sloppy code                    │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  5. COST ESTIMATION (Nice to Have)                                          │
+│  4. COST ESTIMATION (Nice to Have)                                          │
 │     Estimate query computation footprint and Dune token costs               │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -96,74 +90,27 @@ SELECT * FROM ethereum.transactions LIMIT 10
 SHOW TABLES IN ethereum
 ```
 
-### Step 2: Dune AI Prompt Writing
+### Step 2: Query Writing in Claude Code
 
-Dune AI (Wand) is a beta suite of tools for writing SQL queries with LLM assistance. **Always explicitly include relevant table names in your prompts** to ensure table schemas are fetched.
+Write SQL queries directly in Claude Code. The AI assistant will:
 
-#### Wand Create
-Generates SQL queries from natural language. Best used as a starting point.
+1. **Understand Requirements** - Interpret the user's data analysis needs
+2. **Select Appropriate Tables** - Choose the right Dune tables based on schema exploration
+3. **Write Optimized SQL** - Generate efficient Trino/Presto SQL queries
+4. **Follow Conventions** - Apply repository style guide and header templates
+5. **Add Documentation** - Include inline comments for complex logic
+6. **Parameterize Values** - Use Dune parameters (`{{param}}`) for configurable values
 
-**Best Practices:**
-- Explicitly mention table names (e.g., "using ethereum.transactions")
-- Be specific about the metrics you want
+**Best Practices for Query Requests:**
+- Be specific about the metrics and dimensions you want
+- Mention relevant tables if known (e.g., "using ethereum.transactions")
 - Specify date ranges and filters
-- Use as a starting point, then refine with Wand Edit
+- Indicate the desired output format (daily aggregates, top N, etc.)
 
-**Example Prompt:**
-> "Using ethereum.transactions and prices.usd, calculate daily ETH transfer volume in USD for the last 30 days, grouped by day"
+**Example Request:**
+> "Calculate daily ETH transfer volume in USD for the last 30 days, grouped by day, using ethereum.transactions and prices.usd"
 
-#### Wand Edit
-Modifies existing SQL queries based on natural language instructions.
-
-**Common Use Cases:**
-- Adding statistics (percentiles, aggregations)
-- Adding JOINs to existing queries
-- Reformatting output (pivoting, restructuring)
-- Adding CTEs for complex logic
-
-**Example - Adding Statistics:**
-Original query:
-```sql
-SELECT
-    date_trunc('day', block_time) AS time,
-    (PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY gas_price))/1e9 AS median_gas
-FROM ethereum.transactions
-GROUP BY time
-```
-
-Prompt: "Add the remaining components of a five point summary"
-
-Result adds: min, lower quartile (25%), median, upper quartile (75%), max
-
-**Example - Adding a JOIN:**
-Original query:
-```sql
-SELECT date_trunc('day', block_time) as day, COUNT(distinct seller) as sellers
-FROM nft.trades
-WHERE project = 'blur'
-GROUP BY 1
-```
-
-Prompt: "Join nft.wash_trades to get percentage of sellers involved in wash trading"
-
-#### Wand Debug
-Automatically fixes SQL syntax errors. Click "Fix Query" when a query fails.
-
-- Collects your query and error message
-- Attempts automatic fix
-- Original query saved in history for recovery
-
-### Step 3: Code Refinement in Claude Code
-
-After receiving Dune AI output, paste it into Claude Code for:
-
-1. **Code Review** - Check for logical errors, hallucinations, incorrect table references
-2. **Style Compliance** - Ensure code follows repository conventions
-3. **Optimization** - Improve query performance
-4. **Documentation** - Add proper header comments and inline documentation
-5. **Parameterization** - Convert hardcoded values to Dune parameters
-
-### Step 4: Validation (Dry Run / Smoke Test)
+### Step 3: Validation (Dry Run / Smoke Test)
 
 Before committing queries, run them through the validation environment to catch:
 
@@ -201,7 +148,7 @@ Before committing queries, run them through the validation environment to catch:
 
 **Test Environment Location:** `tests/` directory (to be implemented)
 
-### Step 5: Cost Estimation (Nice to Have)
+### Step 4: Cost Estimation (Nice to Have)
 
 Estimate the computational footprint before running expensive queries:
 
@@ -250,8 +197,6 @@ DuneQueries/
 │   ├── optimism/          # Optimism queries
 │   ├── solana/            # Solana queries
 │   └── cross-chain/       # Multi-chain queries
-├── prompts/               # Dune AI prompts and their outputs
-│   └── README.md          # Guidelines for writing effective prompts
 ├── tests/                 # Validation and smoke tests
 │   ├── smoke/             # Quick validation scripts
 │   ├── schemas/           # Expected schema definitions
@@ -436,8 +381,6 @@ Use clear, descriptive commit messages:
 
 **Dune Documentation:**
 - [Dune Analytics Documentation](https://docs.dune.com/)
-- [Dune AI (Wand) Guide](https://docs.dune.com/web-app/dune-ai)
-- [Dune AI Prompt Engineering](https://docs.dune.com/learning/how-tos/dune-ai-prompt-engineering)
 - [Dune API Documentation](https://docs.dune.com/api-reference/overview)
 - [Dune Documentation Index (for LLMs)](https://docs.dune.com/llms.txt)
 
