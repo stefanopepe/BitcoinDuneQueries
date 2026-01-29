@@ -207,8 +207,6 @@ This query uses Dune's incremental processing with `previous.query.result()`. No
 | `privacy_heuristic` | VARCHAR | The privacy issue detected |
 | `tx_count` | BIGINT | Number of transactions |
 | `sats_total` | DOUBLE | Total satoshis involved |
-| `avg_inputs` | DOUBLE | Average input count |
-| `avg_outputs` | DOUBLE | Average output count |
 
 #### Privacy Heuristics
 
@@ -226,14 +224,16 @@ This query uses Dune's incremental processing with `previous.query.result()`. No
 #### Example Output
 
 ```
-| day        | privacy_heuristic   | tx_count | sats_total        | avg_inputs | avg_outputs |
-|------------|---------------------|----------|-------------------|------------|-------------|
-| 2026-01-27 | address_reuse       | 83758    | 209068454128190   | 1.29       | 2.91        |
-| 2026-01-27 | change_script_type  | 112321   | 127928379184560   | 1.00       | 2.00        |
-| 2026-01-27 | no_privacy_issues   | 60033    | 103477829561490   | 2.00       | 2.64        |
-| 2026-01-28 | address_reuse       | 77757    | 224791928388940   | 1.38       | 2.84        |
-| 2026-01-28 | change_script_type  | 88416    | 95163452325580    | 1.00       | 2.00        |
-| 2026-01-28 | no_privacy_issues   | 60781    | 93139945643090    | 2.27       | 2.51        |
+| day        | privacy_heuristic   | tx_count | sats_total      |
+|------------|---------------------|----------|-----------------|
+| 2026-01-28 | no_privacy_issues   | 312456   | 8765432109876   |
+| 2026-01-28 | change_precision    | 89234    | 2345678901234   |
+| 2026-01-28 | self_transfer       | 45678    | 1234567890123   |
+| 2026-01-28 | change_script_type  | 23456    | 567890123456    |
+| 2026-01-28 | coinjoin_detected   | 1234     | 987654321098    |
+| 2026-01-28 | address_reuse       | 5678     | 123456789012    |
+| 2026-01-28 | uih1                | 4567     | 234567890123    |
+| 2026-01-28 | uih2                | 1234     | 98765432109     |
 ```
 
 #### Query Structure
@@ -289,10 +289,58 @@ This query uses Dune's incremental processing with `previous.query.result()`. No
 
 #### Notes
 
-- **UTXO Dependency:** This query only analyzes "other" transactions from the UTXO layer
-- **Coinbase Exclusion:** Coinbase transactions are excluded
-- **Incremental Design:** Efficient incremental updates with 1-day lookback
-- **Precision Calculation:** Uses trailing zero count difference to detect change outputs
+- **Heuristic Priority:** Heuristics are evaluated in order; a transaction is classified by the first matching heuristic
+- **Spendable Outputs Only:** Non-spendable outputs (OP_RETURN/nulldata, nonstandard) are excluded from analysis
+- **UIH Exclusion:** UIH checks skip transactions where all inputs share the same script type (legitimate consolidation)
+- **CoinJoin Threshold:** Requires ≥50% of outputs to be equal, capped between 2-5 matching outputs
+- **Precision Calculation:** Uses trailing zeros in satoshi values to estimate "roundness"
+- **Incremental Design:** Designed for efficient daily updates with 1-day lookback recomputation
+
+---
+
+## Adding New Queries
+
+When adding a new query to this repository:
+
+1. **Create the SQL file** in the appropriate blockchain directory
+2. **Include the standard header** (see [CLAUDE.md](../CLAUDE.md) for format)
+3. **Validate against schemas** in [`dune_database_schemas.md`](./dune_database_schemas.md)
+4. **Document in this file** following the template below
+
+### Query Documentation Template
+
+```markdown
+### query_name.sql
+
+**Path:** `queries/{blockchain}/query_name.sql`
+
+**Description:**
+[Brief description of what the query does]
+
+**Author:** [username]
+**Created:** [YYYY-MM-DD]
+
+#### Purpose
+[Why this query is useful]
+
+#### Dune Tables Used
+| Table | Purpose | Key Columns Used |
+|-------|---------|------------------|
+| `table.name` | [purpose] | `col1`, `col2` |
+
+#### Input Parameters
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `{{param}}` | TYPE | value | [description] |
+
+#### Output Schema
+| Column | Type | Description |
+|--------|------|-------------|
+| `column_name` | TYPE | [description] |
+
+#### Notes
+[Any special considerations, limitations, or usage notes]
+```
 
 ---
 

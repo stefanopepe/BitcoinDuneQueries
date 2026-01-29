@@ -27,8 +27,6 @@
 --   privacy_heuristic     - The privacy issue detected
 --   tx_count              - Number of transactions
 --   sats_total            - Total satoshis involved
---   avg_inputs            - Average input count
---   avg_outputs           - Average output count
 -- ============================================================
 
 WITH
@@ -40,9 +38,7 @@ prev AS (
             day DATE,
             privacy_heuristic VARCHAR,
             tx_count BIGINT,
-            sats_total DOUBLE,
-            avg_inputs DOUBLE,
-            avg_outputs DOUBLE
+            sats_total DOUBLE
         )
     ))
 ),
@@ -70,7 +66,7 @@ raw_inputs AS (
       AND i.is_coinbase = FALSE
 ),
 
--- 4) Get all outputs with their details
+-- 4) Get all spendable outputs (exclude OP_RETURN and other non-spendable types)
 raw_outputs AS (
     SELECT
         CAST(date_trunc('day', o.block_time) AS DATE) AS day,
@@ -83,6 +79,7 @@ raw_outputs AS (
     CROSS JOIN checkpoint c
     WHERE CAST(date_trunc('day', o.block_time) AS DATE) >= c.cutoff_day
       AND CAST(date_trunc('day', o.block_time) AS DATE) < CURRENT_DATE
+      AND o.type NOT IN ('nulldata', 'nonstandard')  -- Exclude OP_RETURN and non-spendable
 ),
 
 -- 5) Get tx-level input/output counts for UTXO classification
@@ -151,14 +148,27 @@ tx_output_stats AS (
 -- 9) For 2-output transactions, get individual output details for precision analysis
 two_output_details AS (
     SELECT
-        ro.day,
-        ro.tx_id,
-        ARRAY_AGG(ro.output_value ORDER BY ro.output_index) AS output_values,
-        ARRAY_AGG(ro.output_script_type ORDER BY ro.output_index) AS output_types
-    FROM raw_outputs ro
-    INNER JOIN other_tx_ids o ON ro.day = o.day AND ro.tx_id = o.tx_id
-    WHERE o.output_count = 2
-    GROUP BY ro.day, ro.tx_id
+        o.day,
+        o.tx_id,
+        MIN(CASE WHEN rn = 1 THEN output_value END) AS out1_value,
+        MIN(CASE WHEN rn = 2 THEN output_value END) AS out2_value,
+        MIN(CASE WHEN rn = 1 THEN output_script_type END) AS out1_type,
+        MIN(CASE WHEN rn = 2 THEN output_script_type END) AS out2_type
+    FROM (
+        SELECT
+            day,
+            tx_id,
+            output_value,
+            output_script_type,
+            ROW_NUMBER() OVER (PARTITION BY day, tx_id ORDER BY output_index) AS rn
+        FROM raw_outputs
+        WHERE tx_id IN (
+            SELECT tx_id
+            FROM tx_output_stats
+            WHERE output_count = 2
+        )
+    ) o
+    GROUP BY o.day, o.tx_id
 ),
 
 -- Note: CoinJoin detection removed - handled by UTXO Heuristics (coinjoin_like)
@@ -198,8 +208,13 @@ tx_combined AS (
         -- Fee calculation
         i.total_input_value - COALESCE(o.total_output_value, 0) AS fee,
         -- Two-output details
-        tod.output_values,
-        tod.output_types,
+        tod.out1_value,
+        tod.out2_value,
+        tod.out1_type,
+        tod.out2_type,
+        -- CoinJoin metrics
+        COALESCE(cj.total_outputs, 0) AS cj_total_outputs,
+        COALESCE(cj.max_equal_outputs, 0) AS cj_max_equal_outputs,
         -- Address reuse
         COALESCE(ar.has_address_reuse, FALSE) AS has_address_reuse
     FROM tx_input_stats i
@@ -208,29 +223,44 @@ tx_combined AS (
     LEFT JOIN address_reuse_detection ar ON i.day = ar.day AND i.tx_id = ar.tx_id
 ),
 
--- 12) Calculate precision for 2-output transactions
--- Precision = number of trailing zeros when expressed in satoshis
+-- 11) Calculate precision for 2-output transactions
+-- Precision = number of trailing zeros when expressed in satoshis (using modulo)
 tx_with_precision AS (
     SELECT
         *,
-        -- For 2-output txs, calculate precision difference
+        -- For 2-output txs, calculate precision difference using modulo
         CASE
-            WHEN output_count = 2 AND output_values IS NOT NULL THEN
+            WHEN output_count = 2 AND out1_value IS NOT NULL AND out2_value IS NOT NULL
+                 AND out1_value > 0 AND out2_value > 0 THEN
                 ABS(
                     -- Count trailing zeros for first output
-                    COALESCE(LENGTH(CAST(output_values[1] AS VARCHAR))
-                        - LENGTH(RTRIM(CAST(output_values[1] AS VARCHAR), '0')), 0)
+                    CASE WHEN out1_value % 100000000 = 0 THEN 8
+                         WHEN out1_value % 10000000 = 0 THEN 7
+                         WHEN out1_value % 1000000 = 0 THEN 6
+                         WHEN out1_value % 100000 = 0 THEN 5
+                         WHEN out1_value % 10000 = 0 THEN 4
+                         WHEN out1_value % 1000 = 0 THEN 3
+                         WHEN out1_value % 100 = 0 THEN 2
+                         WHEN out1_value % 10 = 0 THEN 1
+                         ELSE 0 END
                     -
                     -- Count trailing zeros for second output
-                    COALESCE(LENGTH(CAST(output_values[2] AS VARCHAR))
-                        - LENGTH(RTRIM(CAST(output_values[2] AS VARCHAR), '0')), 0)
+                    CASE WHEN out2_value % 100000000 = 0 THEN 8
+                         WHEN out2_value % 10000000 = 0 THEN 7
+                         WHEN out2_value % 1000000 = 0 THEN 6
+                         WHEN out2_value % 100000 = 0 THEN 5
+                         WHEN out2_value % 10000 = 0 THEN 4
+                         WHEN out2_value % 1000 = 0 THEN 3
+                         WHEN out2_value % 100 = 0 THEN 2
+                         WHEN out2_value % 10 = 0 THEN 1
+                         ELSE 0 END
                 )
             ELSE 0
         END AS precision_diff,
         -- Check if output script types differ
         CASE
-            WHEN output_count = 2 AND output_types IS NOT NULL
-                 AND output_types[1] != output_types[2] THEN TRUE
+            WHEN output_count = 2 AND out1_type IS NOT NULL AND out2_type IS NOT NULL
+                 AND out1_type != out2_type THEN TRUE
             ELSE FALSE
         END AS script_types_differ
     FROM tx_combined
@@ -293,9 +323,7 @@ new_data AS (
         day,
         privacy_heuristic,
         COUNT(*) AS tx_count,
-        SUM(total_input_value) AS sats_total,
-        AVG(input_count) AS avg_inputs,
-        AVG(output_count) AS avg_outputs
+        SUM(total_input_value) AS sats_total
     FROM classified
     GROUP BY day, privacy_heuristic
 ),
