@@ -13,10 +13,10 @@ This repository provides:
 
 ## Development Pipeline
 
-We follow a structured 5-step pipeline for developing and validating Dune queries:
+We follow a structured 4-step pipeline for developing and validating Dune queries:
 
 ```
-Schema Exploration → Dune AI Prompting → Code Refinement → Validation → Cost Estimation
+Schema Exploration → Query Development → Validation → Cost Estimation
 ```
 
 ### 1. Schema Exploration
@@ -31,33 +31,21 @@ curl -X GET "https://api.dune.com/api/v1/query/QUERY_ID/results" \
   -H "X-Dune-API-Key: $DUNE_API_KEY"
 ```
 
-### 2. Dune AI Prompting
+### 2. Query Development
 
-Leverage Dune AI (Wand) tools for query generation:
-
-| Tool | Purpose |
-|------|---------|
-| **Wand Create** | Generate SQL from natural language |
-| **Wand Edit** | Modify existing queries with instructions |
-| **Wand Debug** | Automatically fix SQL syntax errors |
-
-**Tip:** Always include explicit table names in prompts (e.g., "using ethereum.transactions") to ensure proper schema fetching.
-
-### 3. Code Refinement
-
-Review and enhance Dune AI output for:
-- Logical correctness and hallucination detection
+Write and refine SQL queries with focus on:
+- Logical correctness and accurate table/column references
 - Style compliance and optimization
 - Proper documentation and parameterization
 
-### 4. Validation
+### 3. Validation
 
 Run smoke tests to catch:
 - Non-existent tables, columns, or functions
 - Syntax and logic errors
 - Performance issues
 
-### 5. Cost Estimation
+### 4. Cost Estimation
 
 Estimate computational footprint before running expensive queries by checking row counts and understanding query plans.
 
@@ -77,7 +65,6 @@ DuneQueries/
 │   ├── optimism/          # Optimism queries
 │   ├── solana/            # Solana queries
 │   └── cross-chain/       # Multi-chain queries
-├── prompts/               # Dune AI prompts and outputs
 ├── templates/             # Reusable query templates
 ├── tests/                 # Validation and smoke tests
 │   ├── smoke/             # Quick validation scripts
@@ -133,10 +120,7 @@ date_trunc('day', block_time) AS day
 | Resource | Link |
 |----------|------|
 | Dune Documentation | [docs.dune.com](https://docs.dune.com/) |
-| Dune AI Guide | [Wand Documentation](https://docs.dune.com/web-app/dune-ai) |
-| Dune AI Prompt Engineering | [Prompt Guide](https://docs.dune.com/learning/how-tos/dune-ai-prompt-engineering) |
 | Dune API | [API Reference](https://docs.dune.com/api-reference/overview) |
-| Dune Docs Index (LLMs) | [llms.txt](https://docs.dune.com/llms.txt) |
 | Data Tables Reference | [Blockchain Data](https://docs.dune.com/data-tables/) |
 | Spellbook | [GitHub](https://github.com/duneanalytics/spellbook) |
 | Trino SQL | [Documentation](https://trino.io/docs/current/) |
