@@ -2,7 +2,7 @@
 
 This document provides an overview of all SQL queries in the `/queries/` directory, including their purpose, input/output schemas, and dependencies.
 
-> **Last Updated:** 2026-01-29
+> **Last Updated:** 2026-01-30
 
 ---
 
@@ -14,6 +14,7 @@ This document provides an overview of all SQL queries in the `/queries/` directo
 - [Bitcoin Queries](#bitcoin-queries)
   - [bitcoin_utxo_heuristics.sql](#bitcoin_utxo_heuristicssql)
   - [bitcoin_privacy_heuristics_v2.sql](#bitcoin_privacy_heuristics_v2sql)
+  - [bitcoin_human_factor_scoring.sql](#bitcoin_human_factor_scoringsql)
 
 ---
 
@@ -44,6 +45,7 @@ queries/
 |-------|------------|---------------|-------------|-------------|
 | [bitcoin_utxo_heuristics.sql](#bitcoin_utxo_heuristicssql) | Bitcoin | `query_6614095` | Classifies transactions by intent patterns | `bitcoin.inputs`, `bitcoin.outputs` |
 | [bitcoin_privacy_heuristics_v2.sql](#bitcoin_privacy_heuristics_v2sql) | Bitcoin | TBD | Detects privacy issues on "other" intent transactions | `bitcoin.inputs`, `bitcoin.outputs` |
+| [bitcoin_human_factor_scoring.sql](#bitcoin_human_factor_scoringsql) | Bitcoin | TBD | Scores transactions on human vs automated origin | `bitcoin.inputs`, `bitcoin.outputs` |
 
 ---
 
@@ -71,9 +73,21 @@ The following diagram shows the relationship between queries:
 │  • change_precision, change_script_type, uih1, uih2                        │
 │  • address_reuse, no_privacy_issues                                         │
 └─────────────────────────────────────────────────────────────────────────────┘
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  STANDALONE: HUMAN FACTOR SCORING                                           │
+│  bitcoin_human_factor_scoring.sql                                           │
+│                                                                             │
+│  Scores ALL transactions on human vs automated likelihood (0-100):          │
+│  • Uses BDD (Bitcoin Days Destroyed), tx structure, value patterns          │
+│  • Outputs daily distribution by score bands                                │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 **Note:** The privacy heuristics query replicates the UTXO classification logic internally to filter to "other" transactions. It does not directly reference `query_6614095` since that query outputs aggregated data without transaction IDs.
+
+**Note:** The human factor scoring query is standalone and processes all transactions independently.
 
 ---
 
@@ -295,6 +309,166 @@ This query uses Dune's incremental processing with `previous.query.result()`. No
 - **CoinJoin Threshold:** Requires ≥50% of outputs to be equal, capped between 2-5 matching outputs
 - **Precision Calculation:** Uses trailing zeros in satoshi values to estimate "roundness"
 - **Incremental Design:** Designed for efficient daily updates with 1-day lookback recomputation
+
+---
+
+### bitcoin_human_factor_scoring.sql
+
+**Path:** `queries/bitcoin/bitcoin_human_factor_scoring.sql`
+**Dune Query ID:** TBD
+
+**Description:**
+Scores Bitcoin transactions on their likelihood of originating from human-controlled wallets versus automated systems (exchanges, bots, mining pools). Uses behavioral heuristics including transaction structure, value patterns, and Bitcoin Days Destroyed (BDD) for holding time analysis.
+
+**Author:** stefanopepe
+**Created:** 2026-01-30
+**Updated:** 2026-01-30
+
+**Academic References:**
+- Meiklejohn et al. (2013) - Clustering heuristics, entity tagging
+- Ermilov et al. (2017) - Industrial-scale entity tagging
+- Zhang et al. (2020) - Address reuse, clustering ratio
+- Schnoering et al. (2024) - Temporal evolution, false positive analysis
+- Niedermayer et al. (2024) - Bot detection taxonomy
+- Sornette et al. (2024) - BDD holding time power-law distributions
+
+#### Purpose
+
+Enables analysts to:
+- Filter likely human transactions for sentiment analysis
+- Identify automated activity (exchange arbitrage, mining, mixing)
+- Track changes in human vs. automated transaction volume over time
+- Research behavioral patterns in Bitcoin usage
+
+#### Dune Tables Used
+
+| Table | Purpose | Key Columns Used |
+|-------|---------|------------------|
+| `bitcoin.inputs` | Transaction inputs, BDD calculation | `block_time`, `tx_id`, `value`, `block_height`, `spent_block_height`, `is_coinbase` |
+| `bitcoin.outputs` | Output features (dust, round values) | `block_time`, `tx_id`, `value` |
+
+#### Input Parameters
+
+This query uses Dune's incremental processing with `previous.query.result()`. No user-defined parameters required.
+
+**Incremental Processing:**
+- Uses 1-day lookback window for recomputation
+- Default fallback date: `2026-01-01` (adjustable in `checkpoint` CTE)
+- Excludes coinbase transactions from analysis
+
+#### Scoring Model
+
+**BASE_SCORE = 50** (neutral starting point)
+
+| Indicator | Condition | Weight | Direction |
+|-----------|-----------|--------|-----------|
+| `high_fan_in` | input_count > 50 | -15 | Automated |
+| `high_fan_out` | output_count > 50 | -15 | Automated |
+| `round_values` | output divisible by 0.001 BTC | -5 | Automated |
+| `dust_output` | any output < 0.00000546 BTC | -10 | Automated |
+| `simple_structure` | 1-in-1-out or 1-in-2-out | +10 | Human |
+| `non_round_value` | no round outputs | +5 | Human |
+| `moderate_holder` | avg days held 1-365 | +10 | Human |
+| `long_term_holder` | avg days held > 365 | +15 | Human |
+
+Final score clamped to [0, 100].
+
+**Note:** BDD calculation uses `spent_block_height` from `bitcoin.inputs` with approximation: `days_held = (block_height - spent_block_height) / 144`
+
+#### Output Schema
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `day` | DATE | Date of transactions |
+| `score_band` | VARCHAR | Score range (e.g., '50-60') |
+| `score_band_order` | BIGINT | Numeric ordering (1-10) |
+| `tx_count` | BIGINT | Number of transactions in band |
+| `btc_volume` | DOUBLE | Total BTC moved (input value) |
+| `avg_score` | DOUBLE | Average exact score within band |
+
+#### Score Band Interpretation
+
+| Band | Range | Interpretation |
+|------|-------|----------------|
+| 1-3 | 0-30 | Likely automated (exchange, pool, bot) |
+| 4-5 | 30-50 | Probably automated |
+| 6 | 50-60 | Ambiguous / uncertain |
+| 7-8 | 60-80 | Likely human-controlled |
+| 9-10 | 80-100 | Strong human indicators (HODLer) |
+
+#### Example Output
+
+```
+| day        | score_band | score_band_order | tx_count | btc_volume    | avg_score |
+|------------|------------|------------------|----------|---------------|-----------|
+| 2026-01-29 | 50-60      | 6                | 125000   | 45000.123     | 55.2      |
+| 2026-01-29 | 60-70      | 7                | 98000    | 32000.456     | 65.8      |
+| 2026-01-29 | 70-80      | 8                | 45000    | 18000.789     | 75.3      |
+| 2026-01-29 | 40-50      | 5                | 35000    | 12000.012     | 45.1      |
+| 2026-01-29 | 30-40      | 4                | 22000    | 8500.345      | 35.6      |
+```
+
+#### Query Structure
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ CTEs: prev, checkpoint                                                       │
+│   Incremental processing setup                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ CTEs: raw_inputs, raw_outputs                                                │
+│   Load raw transaction data for date range                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ CTEs: tx_input_stats, tx_output_stats                                        │
+│   Aggregate input and output features per transaction                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ CTE: tx_combined                                                             │
+│   Join all features, derive boolean indicators                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ CTEs: tx_scored, tx_with_bands                                               │
+│   Apply scoring formula, assign to score bands                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ CTE: new_data                                                                │
+│   Aggregate by day and score band                                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Final: UNION kept_old + new_data                                             │
+│   Merge historical data with newly computed data                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Notes
+
+- **Academic Foundation:** Based on peer-reviewed research on blockchain entity classification
+- **BDD Calculation:** Uses `spent_block_height` to calculate holding time without expensive joins
+- **No Definitive Proof:** Score indicates *likelihood*, not certainty (per Schnoering et al., 2024)
+- **Incremental Design:** Designed for efficient daily updates with 1-day lookback recomputation
+- **Coinbase Exclusion:** Coinbase transactions (block rewards) are excluded since they don't represent user-initiated activity
+- **Value Units:** `bitcoin.inputs.value` and `bitcoin.outputs.value` are in BTC (not satoshis)
+- **Future Enhancement:** Label integration (exchange/mining/mixer tags) can be added when `labels.addresses` has Bitcoin coverage
+
+#### Limitations
+
+1. No method definitively proves human control - score indicates likelihood only
+2. Privacy-preserving wallets (CoinJoin users) may score lower despite being human
+3. Sophisticated bots can mimic human patterns and defeat heuristics
+4. BDD approximation uses 144 blocks = 1 day (actual block times vary)
 
 ---
 

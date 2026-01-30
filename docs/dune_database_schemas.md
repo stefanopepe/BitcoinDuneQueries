@@ -2,7 +2,7 @@
 
 This document provides a quick reference for commonly used Dune Analytics table schemas. Use this as a reliable offline reference when building queries.
 
-> **Last Updated:** 2026-01-29
+> **Last Updated:** 2026-01-30
 
 ---
 
@@ -173,18 +173,32 @@ Transaction inputs (UTXOs being spent).
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `block_time` | TIMESTAMP | Block timestamp |
-| `block_height` | BIGINT | Block height |
-| `tx_id` | VARCHAR | Transaction ID |
-| `index` | BIGINT | Input index |
-| `spent_tx_id` | VARCHAR | TXID of spent output |
-| `spent_output_index` | BIGINT | Index of spent output |
-| `value` | BIGINT | Value in satoshis |
+| `block_time` | TIMESTAMP | Block timestamp (when input was spent) |
+| `block_date` | DATE | Block date |
+| `block_height` | BIGINT | Block height (when input was spent) |
+| `block_hash` | VARBINARY | Block hash |
+| `tx_id` | VARBINARY | Transaction ID |
+| `index` | BIGINT | Input index within transaction |
+| `spent_block_height` | BIGINT | Block height where the original UTXO was created |
+| `spent_tx_id` | VARBINARY | TXID of the output being spent |
+| `spent_output_number` | BIGINT | Index of the output being spent (note: not `spent_output_index`) |
+| `value` | DOUBLE | Value in **BTC** (not satoshis) |
 | `address` | VARCHAR | Spending address |
-| `type` | VARCHAR | Script type (p2pkh, p2sh, p2wpkh, etc.) |
-| `script_sig` | VARCHAR | Input script |
-| `witness` | ARRAY(VARCHAR) | SegWit witness data |
+| `type` | VARCHAR | Script type (pubkeyhash, witness_v0_scripthash, witness_v1_taproot, etc.) |
+| `coinbase` | VARBINARY | Coinbase data (for coinbase inputs only) |
 | `is_coinbase` | BOOLEAN | Is coinbase input |
+| `script_asm` | VARCHAR | Script in ASM format |
+| `script_hex` | VARBINARY | Script in hex format |
+| `script_desc` | VARCHAR | Script descriptor |
+| `script_signature_asm` | VARCHAR | Signature script ASM |
+| `script_signature_hex` | VARBINARY | Signature script hex |
+| `sequence` | BIGINT | Sequence number |
+| `witness_data` | VARBINARY | SegWit witness data |
+
+**Important Notes:**
+- `value` is in **BTC**, not satoshis (e.g., 0.31934359 BTC)
+- `spent_block_height` enables BDD (Bitcoin Days Destroyed) calculation without joins
+- Use `spent_output_number` (not `spent_output_index`) to reference the original output
 
 ### bitcoin.outputs
 
@@ -193,16 +207,22 @@ Transaction outputs (UTXOs created).
 | Column | Type | Description |
 |--------|------|-------------|
 | `block_time` | TIMESTAMP | Block timestamp |
+| `block_date` | DATE | Block date |
 | `block_height` | BIGINT | Block height |
-| `tx_id` | VARCHAR | Transaction ID |
+| `block_hash` | VARBINARY | Block hash |
+| `tx_id` | VARBINARY | Transaction ID |
 | `index` | BIGINT | Output index |
-| `value` | BIGINT | Value in satoshis |
+| `value` | DOUBLE | Value in **BTC** (not satoshis) |
 | `address` | VARCHAR | Recipient address |
-| `type` | VARCHAR | Script type |
-| `script_pub_key` | VARCHAR | Output script |
-| `is_spent` | BOOLEAN | Has been spent |
-| `spending_tx_id` | VARCHAR | TXID that spent this |
-| `spending_input_index` | BIGINT | Input index that spent |
+| `type` | VARCHAR | Script type (pubkeyhash, witness_v0_keyhash, nulldata, etc.) |
+| `script_asm` | VARCHAR | Script in ASM format |
+| `script_hex` | VARBINARY | Script in hex format |
+| `script_desc` | VARCHAR | Script descriptor |
+
+**Important Notes:**
+- `value` is in **BTC**, not satoshis (e.g., 0.12081057 BTC)
+- Columns `is_spent`, `spending_tx_id`, `spending_input_index` do **NOT** exist
+- To track spending, use `bitcoin.inputs.spent_tx_id` and `spent_output_number` instead
 
 ### bitcoin.blocks
 
