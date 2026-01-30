@@ -373,9 +373,54 @@ Use clear, descriptive commit messages:
 
 ### Branch Naming
 
-- `feature/query-name` - New queries
-- `fix/issue-description` - Bug fixes
-- `docs/topic` - Documentation updates
+Use descriptive, lowercase branch names with hyphens. The prefix indicates the type of work.
+
+#### Query Development
+
+| Prefix | Purpose | Example |
+|--------|---------|---------|
+| `query/` | New query development | `query/ethereum-daily-gas-analysis` |
+| `improve/` | Enhance existing query (optimize, add metrics, extend date range) | `improve/uniswap-swaps-add-volume-usd` |
+
+#### Repository & Infrastructure
+
+| Prefix | Purpose | Example |
+|--------|---------|---------|
+| `meta/` | Repository structure, workflows, CLAUDE.md, CI/CD | `meta/update-branching-conventions` |
+| `infra/` | Scripts, API wrappers, automation tools | `infra/dune-api-validation-script` |
+
+#### Quality & Maintenance
+
+| Prefix | Purpose | Example |
+|--------|---------|---------|
+| `fix/` | Bug fixes in queries or scripts | `fix/decimal-handling-erc20-transfers` |
+| `test/` | Add or improve validation/smoke tests | `test/ethereum-query-smoke-tests` |
+| `refactor/` | Restructure code without changing behavior | `refactor/consolidate-price-join-pattern` |
+
+#### Documentation
+
+| Prefix | Purpose | Example |
+|--------|---------|---------|
+| `docs/` | Documentation, README, examples | `docs/nft-query-usage-examples` |
+
+#### Naming Conventions
+
+- Use lowercase letters and hyphens only: `query/daily-eth-volume` ✓
+- Be descriptive but concise: `fix/null-handling-aggregations` ✓
+- Include the affected area: `improve/uniswap-v3-add-fees` ✓
+- Avoid generic names: `fix/bug` ✗, `query/new-query` ✗
+
+#### Commit Message Prefixes (Aligned)
+
+Match your commit messages to branch types:
+- `query/` branches → `Add: ...` or `Query: ...`
+- `improve/` branches → `Improve: ...` or `Update: ...`
+- `meta/` branches → `Meta: ...`
+- `infra/` branches → `Infra: ...`
+- `fix/` branches → `Fix: ...`
+- `test/` branches → `Test: ...`
+- `refactor/` branches → `Refactor: ...`
+- `docs/` branches → `Docs: ...`
 
 ## Resources
 
