@@ -8,7 +8,7 @@
 -- Created: 2026-02-02
 -- Updated: 2026-02-02
 -- Architecture: 1-level nested query on bitcoin_tx_features_daily
--- Base Query: query_<BASE_QUERY_ID> (bitcoin_tx_features_daily)
+-- Base Query: query_6638509 (https://dune.com/queries/6638509)
 -- ============================================================
 -- Matrix Dimensions:
 --   Rows (Score Bands): 10 bands from 0-10 to 90-100
@@ -49,7 +49,7 @@ SELECT
     COUNT(*) AS tx_count,
     SUM(total_input_btc) AS btc_volume,
     AVG(human_factor_score) AS avg_score
-FROM query_<BASE_QUERY_ID>
+FROM query_6638509
 WHERE day >= DATE '{{start_date}}'
   AND day < DATE '{{end_date}}'
 GROUP BY day, score_band, score_band_order, cohort, cohort_order
