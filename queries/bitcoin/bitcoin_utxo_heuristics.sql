@@ -1,4 +1,9 @@
 -- ============================================================
+-- ⚠️ DEPRECATED: This query is superseded by the V2 unified architecture.
+-- Use bitcoin_utxo_heuristics_v2.sql instead, which references
+-- the unified base query bitcoin_tx_features_daily.sql.
+-- This query remains for backward compatibility only.
+-- ============================================================
 -- Query: Bitcoin UTXO Heuristics
 -- Description: Classifies Bitcoin transactions by intent using
 --              input/output patterns (consolidation, fan-out batch,
@@ -6,7 +11,7 @@
 --              Uses incremental processing with 1-day lookback.
 -- Author: stefanopepe
 -- Created: 2026-01-28
--- Updated: 2026-01-29
+-- Updated: 2026-02-02 (deprecated)
 -- Dune Link: https://dune.com/queries/6614095/
 -- Note: On first run, only processes data from fallback date onwards.
 --       Adjust DATE '2026-01-01' in checkpoint CTE for historical analysis.

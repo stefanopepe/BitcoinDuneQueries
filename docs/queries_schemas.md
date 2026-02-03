@@ -2,7 +2,7 @@
 
 This document provides an overview of all SQL queries in the `/queries/` directory, including their purpose, input/output schemas, and dependencies.
 
-> **Last Updated:** 2026-01-30
+> **Last Updated:** 2026-02-02
 
 ---
 
@@ -11,10 +11,18 @@ This document provides an overview of all SQL queries in the `/queries/` directo
 - [Overview](#overview)
 - [Query Index](#query-index)
 - [Query Dependencies](#query-dependencies)
-- [Bitcoin Queries](#bitcoin-queries)
+- [Unified Query Architecture (V2)](#unified-query-architecture-v2)
+  - [bitcoin_tx_features_daily.sql](#bitcoin_tx_features_dailysql) (Base Query)
+  - [bitcoin_human_factor_scoring_v2.sql](#bitcoin_human_factor_scoring_v2sql)
+  - [bitcoin_human_factor_cohort_matrix.sql](#bitcoin_human_factor_cohort_matrixsql)
+  - [bitcoin_cohort_distribution_v2.sql](#bitcoin_cohort_distribution_v2sql)
+  - [bitcoin_utxo_heuristics_v2.sql](#bitcoin_utxo_heuristics_v2sql)
+  - [bitcoin_privacy_heuristics_v3.sql](#bitcoin_privacy_heuristics_v3sql)
+- [Legacy Queries (Deprecated)](#legacy-queries-deprecated)
   - [bitcoin_utxo_heuristics.sql](#bitcoin_utxo_heuristicssql)
-  - [bitcoin_privacy_heuristics_v2.sql](#bitcoin_privacy_heuristics_v2sql)
+  - [bitcoin_privacy_heuristics_v2.sql](#bitcoin_privacy_heuristics_v2sql-legacy)
   - [bitcoin_human_factor_scoring.sql](#bitcoin_human_factor_scoringsql)
+  - [bitcoin_cohort_distribution.sql](#bitcoin_cohort_distributionsql)
 
 ---
 
@@ -41,17 +49,66 @@ queries/
 
 ## Query Index
 
-| Query | Blockchain | Dune Query ID | Description | Tables Used |
-|-------|------------|---------------|-------------|-------------|
-| [bitcoin_utxo_heuristics.sql](#bitcoin_utxo_heuristicssql) | Bitcoin | `query_6614095` | Classifies transactions by intent patterns | `bitcoin.inputs`, `bitcoin.outputs` |
-| [bitcoin_privacy_heuristics_v2.sql](#bitcoin_privacy_heuristics_v2sql) | Bitcoin | TBD | Detects privacy issues on "other" intent transactions | `bitcoin.inputs`, `bitcoin.outputs` |
-| [bitcoin_human_factor_scoring.sql](#bitcoin_human_factor_scoringsql) | Bitcoin | TBD | Scores transactions on human vs automated origin | `bitcoin.inputs`, `bitcoin.outputs` |
+### Unified Architecture (V2) - Recommended
+
+| Query | Type | Dune Query ID | Description |
+|-------|------|---------------|-------------|
+| [bitcoin_tx_features_daily.sql](#bitcoin_tx_features_dailysql) | Base | TBD | Unified base query - computes ALL transaction features |
+| [bitcoin_human_factor_scoring_v2.sql](#bitcoin_human_factor_scoring_v2sql) | Nested | TBD | Aggregates by day + score band |
+| [bitcoin_human_factor_cohort_matrix.sql](#bitcoin_human_factor_cohort_matrixsql) | Nested | TBD | Cross-tabulation: score band × cohort |
+| [bitcoin_cohort_distribution_v2.sql](#bitcoin_cohort_distribution_v2sql) | Nested | TBD | Aggregates by day + cohort |
+| [bitcoin_utxo_heuristics_v2.sql](#bitcoin_utxo_heuristics_v2sql) | Nested | TBD | Aggregates by day + intent |
+| [bitcoin_privacy_heuristics_v3.sql](#bitcoin_privacy_heuristics_v3sql) | Nested | TBD | Privacy analysis on "other" intent |
+
+### Legacy Queries (Deprecated)
+
+| Query | Blockchain | Dune Query ID | Description | Status |
+|-------|------------|---------------|-------------|--------|
+| [bitcoin_utxo_heuristics.sql](#bitcoin_utxo_heuristicssql) | Bitcoin | `query_6614095` | Classifies transactions by intent | **DEPRECATED** - Use V2 |
+| [bitcoin_privacy_heuristics_v2.sql](#bitcoin_privacy_heuristics_v2sql-legacy) | Bitcoin | TBD | Privacy analysis | **DEPRECATED** - Use V3 |
+| [bitcoin_human_factor_scoring.sql](#bitcoin_human_factor_scoringsql) | Bitcoin | TBD | Human factor scoring | **DEPRECATED** - Use V2 |
+| [bitcoin_cohort_distribution.sql](#bitcoin_cohort_distributionsql) | Bitcoin | TBD | Cohort distribution | **DEPRECATED** - Use V2 |
 
 ---
 
 ## Query Dependencies
 
-The following diagram shows the relationship between queries:
+### Unified Architecture (V2) - Recommended
+
+The V2 architecture uses a single base query that computes ALL transaction features once, with 5 lightweight nested queries for different aggregation views:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  bitcoin_tx_features_daily.sql (BASE QUERY)                                 │
+│  - Fetches bitcoin.inputs + bitcoin.outputs ONCE per execution              │
+│  - Computes ALL features: counts, values, BDD, intent, privacy flags        │
+│  - ALSO computes: human_factor_score, score_band, cohort, cohort_order      │
+│  - Uses incremental processing with previous.query.result()                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      │ (ALL views are exactly 1 level deep)
+       ┌──────────────┬───────────────┼───────────────┬──────────────┐
+       │              │               │               │              │
+       ▼              ▼               ▼               ▼              ▼
+┌────────────┐ ┌────────────┐ ┌─────────────┐ ┌────────────┐ ┌────────────┐
+│ human_     │ │ human_     │ │ cohort_     │ │ utxo_      │ │ privacy_   │
+│ factor_v2  │ │ factor_    │ │ dist_v2     │ │ heur_v2    │ │ heur_v3    │
+│            │ │ cohort_mat │ │             │ │            │ │            │
+│ GROUP BY   │ │ GROUP BY   │ │ GROUP BY    │ │ GROUP BY   │ │ GROUP BY   │
+│ day,band   │ │ day,band,  │ │ day,cohort  │ │ day,intent │ │ day,issue  │
+│            │ │ cohort     │ │             │ │            │ │            │
+│ (1 level)  │ │ (1 level)  │ │ (1 level)   │ │ (1 level)  │ │ (1 level)  │
+└────────────┘ └────────────┘ └─────────────┘ └────────────┘ └────────────┘
+```
+
+**Key Design Decisions:**
+- **Max 1-level nesting** - Avoids parasitic query costs (Dune nested queries have NO caching)
+- **All derived fields in base** - Score, band, cohort computed once, not in nested queries
+- **DRY principle** - Eliminates ~200 lines of duplicated aggregation logic
+
+### Legacy Architecture (Deprecated)
+
+The original architecture used independent queries that each fetched data separately:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -85,13 +142,199 @@ The following diagram shows the relationship between queries:
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Note:** The privacy heuristics query replicates the UTXO classification logic internally to filter to "other" transactions. It does not directly reference `query_6614095` since that query outputs aggregated data without transaction IDs.
+**Note:** The legacy privacy heuristics query replicates the UTXO classification logic internally to filter to "other" transactions.
 
-**Note:** The human factor scoring query is standalone and processes all transactions independently.
+**Note:** The legacy human factor scoring query is standalone and processes all transactions independently.
 
 ---
 
-## Bitcoin Queries
+## Unified Query Architecture (V2)
+
+### bitcoin_tx_features_daily.sql
+
+**Path:** `queries/bitcoin/bitcoin_tx_features_daily.sql`
+**Dune Query ID:** TBD
+**Type:** Base Query
+
+**Description:**
+Unified base query that computes ALL transaction-level features for downstream nested queries. Fetches data from `bitcoin.inputs` and `bitcoin.outputs` ONCE, then computes core metrics, human factor scoring, cohort classification, UTXO intent, and privacy flags.
+
+**Author:** stefanopepe
+**Created:** 2026-02-02
+
+#### Dune Tables Used
+
+| Table | Purpose | Key Columns Used |
+|-------|---------|------------------|
+| `bitcoin.inputs` | Transaction inputs, BDD | `block_time`, `tx_id`, `value`, `block_height`, `spent_block_height`, `is_coinbase`, `address`, `type` |
+| `bitcoin.outputs` | Transaction outputs | `block_time`, `tx_id`, `value`, `address`, `type` |
+
+#### Output Schema
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `day` | DATE | Date of transaction |
+| `tx_id` | VARBINARY | Transaction identifier |
+| `input_count` | BIGINT | Number of inputs |
+| `output_count` | BIGINT | Number of outputs |
+| `total_input_btc` | DOUBLE | Total input value (BTC) |
+| `total_output_btc` | DOUBLE | Total output value (BTC) |
+| `fee_btc` | DOUBLE | Transaction fee (BTC) |
+| `dust_output_count` | BIGINT | Outputs < 546 sats |
+| `round_value_count` | BIGINT | Outputs divisible by 0.001 BTC |
+| `avg_days_held` | DOUBLE | Average BDD (Bitcoin Days Destroyed) |
+| `human_factor_score` | BIGINT | Score 0-100 (automated to human) |
+| `score_band` | VARCHAR | Score range (e.g., '50-60') |
+| `score_band_order` | BIGINT | Numeric ordering 1-10 |
+| `cohort` | VARCHAR | Volume cohort (Shrimps, Crab, etc.) |
+| `cohort_order` | BIGINT | Numeric ordering 1-8 |
+| `intent` | VARCHAR | UTXO classification |
+| `has_address_reuse` | BOOLEAN | Output addr matches input addr |
+| `output_type_mismatch` | BOOLEAN | Different output script types |
+
+---
+
+### bitcoin_human_factor_scoring_v2.sql
+
+**Path:** `queries/bitcoin/bitcoin_human_factor_scoring_v2.sql`
+**Type:** Nested Query (1 level deep)
+
+**Description:**
+Aggregates human factor scores by day and score band. Simple GROUP BY on the base query. Backward compatible with original query output schema.
+
+#### Output Schema
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `day` | DATE | Date of transactions |
+| `score_band` | VARCHAR | Score range (e.g., '50-60') |
+| `score_band_order` | BIGINT | Numeric ordering (1-10) |
+| `tx_count` | BIGINT | Number of transactions |
+| `btc_volume` | DOUBLE | Total BTC moved |
+| `avg_score` | DOUBLE | Average score in band |
+
+---
+
+### bitcoin_human_factor_cohort_matrix.sql
+
+**Path:** `queries/bitcoin/bitcoin_human_factor_cohort_matrix.sql`
+**Type:** Nested Query (1 level deep)
+
+**Description:**
+Cross-tabulates human factor score bands with BTC volume cohorts. Enables analysis of how scoring varies by holder size. Matrix: 10 score bands × 8 cohorts = up to 80 cells per day.
+
+#### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `{{start_date}}` | DATE | Analysis start date |
+| `{{end_date}}` | DATE | Analysis end date |
+
+#### Output Schema
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `day` | DATE | Date of transactions |
+| `score_band` | VARCHAR | Score range (e.g., '50-60') |
+| `score_band_order` | BIGINT | Numeric ordering (1-10) |
+| `cohort` | VARCHAR | Holder cohort name |
+| `cohort_order` | BIGINT | Numeric ordering (1-8) |
+| `tx_count` | BIGINT | Number of transactions |
+| `btc_volume` | DOUBLE | Total BTC moved |
+| `avg_score` | DOUBLE | Average score in segment |
+
+#### Cohort Definitions
+
+| Cohort | BTC Range | Order |
+|--------|-----------|-------|
+| Shrimps | < 1 BTC | 1 |
+| Crab | 1-10 BTC | 2 |
+| Octopus | 10-50 BTC | 3 |
+| Fish | 50-100 BTC | 4 |
+| Dolphin | 100-500 BTC | 5 |
+| Shark | 500-1,000 BTC | 6 |
+| Whale | 1,000-5,000 BTC | 7 |
+| Humpback | > 5,000 BTC | 8 |
+
+---
+
+### bitcoin_cohort_distribution_v2.sql
+
+**Path:** `queries/bitcoin/bitcoin_cohort_distribution_v2.sql`
+**Type:** Nested Query (1 level deep)
+
+**Description:**
+Aggregates transactions by day and BTC volume cohort. Simple GROUP BY on the base query. Backward compatible with original query output schema.
+
+#### Output Schema
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `day` | DATE | Date of transactions |
+| `cohort` | VARCHAR | Holder cohort name |
+| `cohort_order` | BIGINT | Numeric ordering (1-8) |
+| `btc_moved` | DOUBLE | Total BTC moved |
+| `tx_count` | BIGINT | Number of transactions |
+| `spent_utxo_count` | BIGINT | Total UTXOs consumed |
+
+---
+
+### bitcoin_utxo_heuristics_v2.sql
+
+**Path:** `queries/bitcoin/bitcoin_utxo_heuristics_v2.sql`
+**Type:** Nested Query (1 level deep)
+
+**Description:**
+Aggregates transactions by day and intent classification. Simple GROUP BY on the base query. Backward compatible with original query output schema.
+
+#### Output Schema
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `day` | DATE | Date of transactions |
+| `intent` | VARCHAR | Classified transaction intent |
+| `tx_count` | BIGINT | Number of transactions |
+| `sats_in` | DOUBLE | Total input value (BTC) |
+| `sats_out` | DOUBLE | Total output value (BTC) |
+| `avg_inputs` | DOUBLE | Average input count per tx |
+| `avg_outputs` | DOUBLE | Average output count per tx |
+| `median_inputs` | DOUBLE | Median input count per tx |
+| `median_outputs` | DOUBLE | Median output count per tx |
+
+---
+
+### bitcoin_privacy_heuristics_v3.sql
+
+**Path:** `queries/bitcoin/bitcoin_privacy_heuristics_v3.sql`
+**Type:** Nested Query (1 level deep)
+
+**Description:**
+Analyzes privacy issues in transactions classified as "other" by the UTXO intent classification. Simplified version using flags computed in base query.
+
+#### Output Schema
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `day` | DATE | Date of transactions |
+| `privacy_heuristic` | VARCHAR | Privacy issue detected |
+| `tx_count` | BIGINT | Number of transactions |
+| `sats_total` | DOUBLE | Total BTC involved |
+
+#### Privacy Heuristics
+
+| Heuristic | Description |
+|-----------|-------------|
+| `address_reuse` | Output address matches an input address |
+| `output_type_mismatch` | 2-output tx with different script types |
+| `no_issue_detected` | No privacy issues detected |
+
+**Note:** Advanced heuristics (change_precision, UIH1, UIH2) require detailed output analysis not available in base query. Use the legacy `bitcoin_privacy_heuristics_v2.sql` for full analysis.
+
+---
+
+## Legacy Queries (Deprecated)
+
+> **⚠️ DEPRECATED:** The queries below are superseded by the V2 unified architecture. They remain for backward compatibility but should not be used for new development.
 
 ### bitcoin_utxo_heuristics.sql
 

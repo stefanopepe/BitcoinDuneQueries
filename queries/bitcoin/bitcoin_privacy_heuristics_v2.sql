@@ -1,4 +1,9 @@
 -- ============================================================
+-- ⚠️ DEPRECATED: This query is superseded by the V3 unified architecture.
+-- Use bitcoin_privacy_heuristics_v3.sql for basic privacy analysis, which
+-- references the unified base query bitcoin_tx_features_daily.sql.
+-- This query remains for advanced analysis (change_precision, UIH1, UIH2).
+-- ============================================================
 -- Query: Bitcoin Privacy Heuristics V2
 -- Description: Implements advanced privacy analysis heuristics based on
 --              Blockstream Esplora's privacy-analysis.js methodology.
@@ -8,7 +13,7 @@
 --              and address reuse patterns.
 -- Author: stefanopepe
 -- Created: 2026-01-29
--- Updated: 2026-01-29
+-- Updated: 2026-02-02 (deprecated)
 -- Reference: https://github.com/Blockstream/esplora/blob/master/client/src/lib/privacy-analysis.js
 -- Dependency: Runs on "other" intent from query_6614095 (Bitcoin UTXO Heuristics)
 -- Note: Uses incremental processing with 1-day lookback.

@@ -1,4 +1,9 @@
 -- ============================================================
+-- ⚠️ DEPRECATED: This query is superseded by the V2 unified architecture.
+-- Use bitcoin_human_factor_scoring_v2.sql instead, which references
+-- the unified base query bitcoin_tx_features_daily.sql.
+-- This query remains for backward compatibility only.
+-- ============================================================
 -- Query: Bitcoin Human Factor Scoring
 -- Description: Scores Bitcoin transactions on likelihood of
 --              originating from human-controlled wallets vs
@@ -8,7 +13,7 @@
 --              Uses incremental processing with 1-day lookback.
 -- Author: stefanopepe
 -- Created: 2026-01-30
--- Updated: 2026-01-30
+-- Updated: 2026-02-02 (deprecated)
 -- Reference: Meiklejohn et al. (2013), Ermilov et al. (2017),
 --            Zhang et al. (2020), Schnoering et al. (2024),
 --            Sornette et al. (2024) - BDD holding time analysis

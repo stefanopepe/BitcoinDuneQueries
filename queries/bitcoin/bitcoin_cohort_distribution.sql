@@ -1,4 +1,9 @@
 -- ============================================================
+-- ⚠️ DEPRECATED: This query is superseded by the V2 unified architecture.
+-- Use bitcoin_cohort_distribution_v2.sql instead, which references
+-- the unified base query bitcoin_tx_features_daily.sql.
+-- This query remains for backward compatibility only.
+-- ============================================================
 -- Query: Bitcoin Cohort Distribution
 -- Description: Classifies Bitcoin transactions by total input value
 --              into holder cohorts (Shrimps through Humpback) based
@@ -7,7 +12,7 @@
 --              Uses incremental processing with 1-day lookback.
 -- Author: stefanopepe
 -- Created: 2026-01-30
--- Updated: 2026-01-30
+-- Updated: 2026-02-02 (deprecated)
 -- Note: On first run, only processes data from fallback date onwards.
 --       Adjust DATE '2026-01-01' in checkpoint CTE for historical analysis.
 -- ============================================================
