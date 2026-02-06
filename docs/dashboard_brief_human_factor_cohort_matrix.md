@@ -28,12 +28,12 @@ Maximum cardinality: **80 cells per day** (10 bands x 8 cohorts). In practice ma
 
 ### Ordering columns
 
-The query provides deterministic sort keys so the dashboard doesn't need to parse label strings:
+The query provides deterministic integer sort keys. **Always use these -- never sort by the label strings.**
 
 - `score_band_order` (1-10, low-to-high score)
 - `cohort_order` (1-8, small-to-large volume)
 
-Use these for axis ordering in all visualizations.
+**Dune chart settings:** In each visualization's configuration, set the "Sort" or "Order" field to the corresponding `*_order` column. For stacked bar series, set series ordering to `cohort_order` ascending (1=Shrimps at bottom). For area/line charts broken out by cohort, set series ordering the same way. If Dune's chart editor offers a "Category order" dropdown, select the `*_order` column rather than alphabetical. Lexicographic sorting produces wrong results (e.g., "Crab" before "Dolphin" alphabetically, but `cohort_order` 2 vs 5 numerically).
 
 ---
 
@@ -100,9 +100,70 @@ Cohorts classify transactions by `total_input_btc` (sum of all input values in t
 
 These are **transaction-level** tiers, not wallet-level. A single wallet can produce transactions in different cohorts on different days.
 
+> **Boundary audit (2026-02-06).** The base query assigns cohorts via a cascading `CASE` with strict `<` comparisons. Effective intervals: `[0,1)`, `[1,10)`, `[10,50)`, `[50,100)`, `[100,500)`, `[500,1000)`, `[1000,5000)`, `[5000,inf)`. No double-counting, no gaps. Score bands use the same cascading `<` pattern. No action needed from the dashboard builder.
+
 ---
 
 ## 5. Dashboard visualizations
+
+### 5.0 Zero-filling sparse cells
+
+The matrix is sparse: many (day, cohort) and (day, score_band, cohort) cells have no transactions and therefore **no row in the result set** (not a row with zero). For stacked charts this causes visual gaps and unstable legend ordering rather than correctly showing zero-height segments. Apply this densification pattern before charting.
+
+**For Visualization 5.1 (day x cohort):**
+
+```sql
+WITH
+days AS (
+    SELECT day
+    FROM UNNEST(SEQUENCE(
+        DATE '{{start_date}}',
+        DATE '{{end_date}}' - INTERVAL '1' DAY,
+        INTERVAL '1' DAY
+    )) AS t(day)
+),
+cohorts AS (
+    SELECT cohort, cohort_order
+    FROM (VALUES
+        ('Shrimps (<1 BTC)', 1), ('Crab (1-10 BTC)', 2),
+        ('Octopus (10-50 BTC)', 3), ('Fish (50-100 BTC)', 4),
+        ('Dolphin (100-500 BTC)', 5), ('Shark (500-1,000 BTC)', 6),
+        ('Whale (1,000-5,000 BTC)', 7), ('Humpback (>5,000 BTC)', 8)
+    ) AS t(cohort, cohort_order)
+),
+spine AS (
+    SELECT d.day, c.cohort, c.cohort_order
+    FROM days d CROSS JOIN cohorts c
+),
+actual AS (
+    SELECT day, cohort, cohort_order,
+           SUM(tx_count) AS tx_count, SUM(btc_volume) AS btc_volume
+    FROM query_results
+    GROUP BY day, cohort, cohort_order
+)
+SELECT
+    s.day, s.cohort, s.cohort_order,
+    COALESCE(a.tx_count, 0) AS tx_count,
+    COALESCE(a.btc_volume, 0) AS btc_volume
+FROM spine s
+LEFT JOIN actual a ON s.day = a.day AND s.cohort_order = a.cohort_order
+ORDER BY s.day, s.cohort_order
+```
+
+For the full matrix (day x score_band x cohort), add a `score_bands` CTE with all 10 bands and extend the CROSS JOIN to three dimensions. This is needed only if you build a heatmap or per-band breakdown.
+
+**Normalize to % (optional):**
+
+To show cohort proportions instead of absolute counts, add a window function:
+
+```sql
+-- append to the final SELECT
+, tx_count * 100.0 / NULLIF(SUM(tx_count) OVER (PARTITION BY day), 0) AS tx_pct
+```
+
+This is useful for a "100% stacked" bar variant, which highlights proportional shifts even when total volume fluctuates day-to-day.
+
+---
 
 ### 5.1 Visualization 1 -- Stacked bar chart: Cohort distribution over time
 
@@ -135,6 +196,7 @@ ORDER BY day, cohort_order
 - Use a sequential or categorical color palette with 8 distinct colors. Suggested: light blue (Shrimps) through dark navy (Humpback).
 - Consider offering a Y-axis toggle between `tx_count` (transaction count) and `btc_volume` (BTC moved). Count shows activity frequency; volume shows economic weight. The story changes significantly -- Shrimps dominate count, Whales dominate volume.
 - The `{{start_date}}` and `{{end_date}}` parameters control the date range. Default: 30 days.
+- **Apply zero-fill from Section 5.0 before charting.** Without it, missing (day, cohort) cells will cause visual gaps in the stacked bars rather than correctly showing zero-height segments, and legend/series ordering may shift day-to-day.
 
 **What to look for:**
 - Day-over-day shifts in cohort proportions (e.g., spike in Humpback activity may correlate with large OTC deals or exchange cold-wallet movements).
@@ -152,28 +214,53 @@ ORDER BY day, cohort_order
 | Y-axis | weighted average human factor score |
 | Chart type | Area (single series, or multi-series by cohort) |
 
-**Data preparation (single-series, overall weighted avg):**
+**Warning -- do not use a naive `AVG(avg_score)`.** The `avg_score` in each cell is already a mean over that cell's transactions. To reconstitute a correct global daily average you must weight by the cell's population. A naive `AVG(avg_score)` gives equal weight to a cell with 1 transaction and a cell with 100,000 transactions, producing a meaningless number.
+
+**Data preparation (single-series, tx-count-weighted avg):**
 
 ```sql
--- Compute daily volume-weighted average score
 SELECT
     day,
-    SUM(avg_score * tx_count) / SUM(tx_count) AS weighted_avg_score
+    SUM(avg_score * tx_count) / NULLIF(SUM(tx_count), 0) AS tx_weighted_avg_score
 FROM query_results
 GROUP BY day
 ORDER BY day
 ```
 
-The weighting by `tx_count` is necessary because `avg_score` in each cell is already a mean within that cell; to reconstitute a correct global daily average, weight each cell's avg by its transaction count.
+**Data preparation (single-series, BTC-volume-weighted avg):**
 
-**Data preparation (multi-series, one line per cohort):**
+```sql
+SELECT
+    day,
+    SUM(avg_score * btc_volume) / NULLIF(SUM(btc_volume), 0) AS vol_weighted_avg_score
+FROM query_results
+GROUP BY day
+ORDER BY day
+```
+
+BTC-volume weighting gives proportionally more influence to large transactions. A divergence between the tx-weighted and volume-weighted lines signals that large and small transactions have different score profiles -- this divergence is itself an analytical insight worth surfacing as a dashboard toggle or dual-line overlay.
+
+**Data preparation (multi-series by cohort, tx-count-weighted):**
 
 ```sql
 SELECT
     day,
     cohort,
     cohort_order,
-    SUM(avg_score * tx_count) / SUM(tx_count) AS weighted_avg_score
+    SUM(avg_score * tx_count) / NULLIF(SUM(tx_count), 0) AS tx_weighted_avg_score
+FROM query_results
+GROUP BY day, cohort, cohort_order
+ORDER BY day, cohort_order
+```
+
+**Data preparation (multi-series by cohort, BTC-volume-weighted):**
+
+```sql
+SELECT
+    day,
+    cohort,
+    cohort_order,
+    SUM(avg_score * btc_volume) / NULLIF(SUM(btc_volume), 0) AS vol_weighted_avg_score
 FROM query_results
 GROUP BY day, cohort, cohort_order
 ORDER BY day, cohort_order
@@ -182,7 +269,7 @@ ORDER BY day, cohort_order
 **Configuration notes:**
 - Y-axis range should be fixed at [0, 100] to maintain consistent visual scale.
 - Add a horizontal reference line at score = 50 (the neutral baseline) to anchor interpretation.
-- If using multi-series (one line per cohort), stack as an area chart or overlay as lines. Area stacking doesn't make semantic sense here (scores don't sum), so **overlaid lines** or a **single filled area** for the aggregate is better.
+- **Do not use stacked area for scores.** Scores are averages on a [0,100] scale -- stacking them produces a meaningless y-axis that sums to 400+ and implies scores are additive (they are not). Use a **single filled area** for the aggregate line (tx-weighted), with **overlaid thin lines** for per-cohort breakdowns. This lets the reader see both the global trend and cohort-level divergences without visual confusion.
 - Color the area using a gradient or threshold coloring: red zone (0-30), amber (30-60), green (60-100) to make the human/automated boundary intuitive.
 
 **What to look for:**
@@ -202,11 +289,13 @@ The query accepts two Dune parameters:
 
 Both visualizations share the same date window. Wire a single date range selector to both parameters.
 
+**Date range constraint:** The base query (`query_6638509`) falls back to `2026-01-01` on first run. Data before that date is not available unless the fallback is manually adjusted in the base query's `checkpoint` CTE. Configure the dashboard date picker with a minimum selectable date of **2026-01-01** to prevent users from selecting a range that returns empty results. Selecting earlier dates will not cause an error, but the empty result set could be misinterpreted as "zero activity" rather than "no data processed."
+
 ---
 
 ## 7. Known data characteristics and caveats
 
-1. **Sparse matrix.** Large cohorts (Shark, Whale, Humpback) have very few transactions daily. Expect many (day, band, cohort) cells to be missing, not zero. Handle missing cells as zero in aggregations.
+1. **Sparse matrix.** Large cohorts (Shark, Whale, Humpback) have very few transactions daily. Expect many (day, band, cohort) cells to be **absent from the result set**, not present with zero values. For correct charting, apply the zero-fill pattern in Section 5.0 so that absent cells render as zero rather than as gaps.
 
 2. **Transaction-level, not entity-level.** A single exchange wallet can generate thousands of Humpback-tier transactions. These are not 5,000 distinct whales -- they may be one entity. This query does not de-duplicate by address or entity.
 
