@@ -146,7 +146,67 @@ Before committing queries, run them through the validation environment to catch:
 - [ ] Results are reasonable (sanity check values)
 - [ ] Query completes within acceptable time
 
-**Test Environment Location:** `tests/` directory (to be implemented)
+**Test Environment Location:** `tests/` directory
+
+#### Programmatic Smoke Testing via Dune API
+
+The repository includes Python scripts for running smoke tests programmatically against the Dune API. This enables automated validation of queries without manual copy-paste to Dune.
+
+**Setup:**
+```bash
+# Create and activate virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install dependencies
+pip install -e .
+
+# Configure API key
+cp .env.example .env
+# Edit .env and add your DUNE_API_KEY
+```
+
+**Running Smoke Tests:**
+```bash
+# List available smoke tests
+python -m scripts.smoke_runner --list
+
+# Run a specific smoke test
+python -m scripts.smoke_runner --test bitcoin_tx_features_daily
+
+# Run all smoke tests
+python -m scripts.smoke_runner --all
+
+# Run only V2 architecture tests
+python -m scripts.smoke_runner --all --architecture v2
+```
+
+**Query Registry:**
+
+The file `queries/registry.json` maintains metadata mapping local SQL files to Dune query IDs:
+
+```bash
+# List registered queries
+python -m scripts.registry_manager list
+
+# Show query details
+python -m scripts.registry_manager show bitcoin_tx_features_daily
+
+# Set Dune query ID after creating on Dune
+python -m scripts.registry_manager set-id bitcoin_tx_features_daily 12345678
+
+# Validate registry consistency
+python -m scripts.registry_manager validate
+```
+
+**AI Assistant Integration:**
+
+When validating queries programmatically:
+1. Use `scripts.dune_client.execute_sql()` to run raw SQL against Dune
+2. Use `scripts.validators` to check results meet expectations
+3. Use `scripts.smoke_runner.run_smoke_test()` to run a full smoke test
+
+See `scripts/README.md` for detailed API documentation.
 
 ### Step 4: Cost Estimation (Nice to Have)
 
@@ -197,13 +257,13 @@ DuneQueries/
 │   ├── optimism/          # Optimism queries
 │   ├── solana/            # Solana queries
 │   └── cross-chain/       # Multi-chain queries
-├── tests/                 # Validation and smoke tests
-│   ├── smoke/             # Quick validation scripts
-│   ├── schemas/           # Expected schema definitions
-│   └── README.md          # Test environment documentation
-├── scripts/               # Utility scripts
-│   ├── validate_query.sh  # Query validation script
-│   └── estimate_cost.sh   # Cost estimation script
+├── tests/                 # Validation and smoke tests (SQL files)
+├── scripts/               # Python utilities for Dune API
+│   ├── dune_client.py     # Dune API wrapper
+│   ├── smoke_runner.py    # Smoke test execution
+│   ├── validators.py      # Result validation
+│   ├── registry_manager.py # Query registry CLI
+│   └── README.md          # Script documentation
 ├── templates/             # Reusable query templates
 ├── spells/                # Dune Spellbook contributions
 └── docs/                  # Additional documentation

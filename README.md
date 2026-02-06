@@ -40,10 +40,25 @@ Write and refine SQL queries with focus on:
 
 ### 3. Validation
 
-Run smoke tests to catch:
-- Non-existent tables, columns, or functions
-- Syntax and logic errors
-- Performance issues
+Run smoke tests to catch errors. Tests can be run programmatically via the Dune API:
+
+```bash
+# Create and activate virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install dependencies
+pip install -e .
+
+# Configure API key
+cp .env.example .env
+# Edit .env with your DUNE_API_KEY
+
+# Run smoke tests
+python -m scripts.smoke_runner --list          # List available tests
+python -m scripts.smoke_runner --test <name>   # Run specific test
+python -m scripts.smoke_runner --all           # Run all tests
+```
 
 ### 4. Cost Estimation
 
@@ -66,12 +81,12 @@ DuneQueries/
 │   ├── solana/            # Solana queries
 │   └── cross-chain/       # Multi-chain queries
 ├── templates/             # Reusable query templates
-├── tests/                 # Validation and smoke tests
-│   ├── smoke/             # Quick validation scripts
-│   └── schemas/           # Expected schema definitions
-├── scripts/               # Utility scripts
-│   ├── validate_query.sh  # Query validation script
-│   └── estimate_cost.sh   # Cost estimation script
+├── tests/                 # Smoke test SQL files
+├── scripts/               # Python utilities for Dune API
+│   ├── dune_client.py     # Dune API wrapper
+│   ├── smoke_runner.py    # Smoke test execution
+│   ├── validators.py      # Result validation
+│   └── registry_manager.py # Query registry CLI
 ├── spells/                # Dune Spellbook contributions
 └── docs/                  # Additional documentation
 ```
