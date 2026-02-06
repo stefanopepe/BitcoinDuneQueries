@@ -5,7 +5,7 @@
     {
       "name": "bitcoin_tx_features_daily",
       "file": "queries/bitcoin/bitcoin_tx_features_daily.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6638509,
       "type": "base",
       "architecture": "v2",
       "smoke_test": "tests/bitcoin_tx_features_daily_smoke.sql",
@@ -15,11 +15,13 @@
     {
       "name": "bitcoin_human_factor_scoring_v2",
       "file": "queries/bitcoin/bitcoin_human_factor_scoring_v2.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6638635,
       "type": "nested",
       "architecture": "v2",
       "smoke_test": "tests/bitcoin_human_factor_scoring_smoke.sql",
-      "dependencies": ["bitcoin_tx_features_daily"],
+      "dependencies": [
+        "bitcoin_tx_features_daily"
+      ],
       "description": "Aggregates human factor scores by day and score band"
     },
     {
@@ -29,17 +31,21 @@
       "type": "nested",
       "architecture": "v2",
       "smoke_test": "tests/bitcoin_human_factor_cohort_matrix_smoke.sql",
-      "dependencies": ["bitcoin_tx_features_daily"],
+      "dependencies": [
+        "bitcoin_tx_features_daily"
+      ],
       "description": "Cross-tabulation matrix: score band x cohort"
     },
     {
       "name": "bitcoin_cohort_distribution_v2",
       "file": "queries/bitcoin/bitcoin_cohort_distribution_v2.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6582426,
       "type": "nested",
       "architecture": "v2",
       "smoke_test": "tests/bitcoin_cohort_distribution_smoke.sql",
-      "dependencies": ["bitcoin_tx_features_daily"],
+      "dependencies": [
+        "bitcoin_tx_features_daily"
+      ],
       "description": "Aggregates transactions by day and cohort (whale tiers)"
     },
     {
@@ -49,17 +55,21 @@
       "type": "nested",
       "architecture": "v2",
       "smoke_test": null,
-      "dependencies": ["bitcoin_tx_features_daily"],
+      "dependencies": [
+        "bitcoin_tx_features_daily"
+      ],
       "description": "Aggregates transactions by day and intent classification"
     },
     {
       "name": "bitcoin_privacy_heuristics_v3",
       "file": "queries/bitcoin/bitcoin_privacy_heuristics_v3.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6616271,
       "type": "nested",
       "architecture": "v2",
       "smoke_test": "tests/bitcoin_privacy_heuristics_v2_smoke.sql",
-      "dependencies": ["bitcoin_tx_features_daily"],
+      "dependencies": [
+        "bitcoin_tx_features_daily"
+      ],
       "description": "Privacy analysis on 'other' intent transactions"
     },
     {
@@ -139,7 +149,9 @@
       "type": "nested",
       "architecture": "v2",
       "smoke_test": null,
-      "dependencies": ["lending_action_ledger_unified"],
+      "dependencies": [
+        "lending_action_ledger_unified"
+      ],
       "description": "Per-entity balance sheets with collateral and debt positions"
     },
     {
@@ -149,7 +161,9 @@
       "type": "nested",
       "architecture": "v2",
       "smoke_test": null,
-      "dependencies": ["lending_action_ledger_unified"],
+      "dependencies": [
+        "lending_action_ledger_unified"
+      ],
       "description": "Cross-protocol flow detection (borrow->transfer->supply)"
     },
     {
@@ -159,7 +173,9 @@
       "type": "nested",
       "architecture": "v2",
       "smoke_test": null,
-      "dependencies": ["lending_flow_stitching"],
+      "dependencies": [
+        "lending_flow_stitching"
+      ],
       "description": "Multi-hop lending loop detection with recursion depth"
     },
     {
@@ -169,7 +185,10 @@
       "type": "nested",
       "architecture": "v2",
       "smoke_test": null,
-      "dependencies": ["lending_loop_detection", "lending_flow_stitching"],
+      "dependencies": [
+        "lending_loop_detection",
+        "lending_flow_stitching"
+      ],
       "description": "Daily aggregated metrics for lending loop activity"
     },
     {
@@ -179,7 +198,9 @@
       "type": "nested",
       "architecture": "v2",
       "smoke_test": null,
-      "dependencies": ["lending_flow_stitching"],
+      "dependencies": [
+        "lending_flow_stitching"
+      ],
       "description": "Edge list dataset for Sankey diagram visualization"
     },
     {
@@ -189,7 +210,9 @@
       "type": "nested",
       "architecture": "v2",
       "smoke_test": null,
-      "dependencies": ["lending_action_ledger_unified"],
+      "dependencies": [
+        "lending_action_ledger_unified"
+      ],
       "description": "Time-ordered per-entity loop traces with running totals"
     }
   ]
