@@ -97,7 +97,7 @@ filtered AS (
         tx_with_output_mismatch,
         pct_address_reuse
     FROM query_6663464
-    WHERE cohort = '{{cohort_filter}}'
+    WHERE cohort = {{cohort_filter}}
 )
 
 -- Zero-fill: LEFT JOIN spine to filtered data
@@ -105,10 +105,10 @@ SELECT
     s.day,
     s.score_band,
     s.score_band_order,
-    '{{cohort_filter}}' AS cohort,
+    {{cohort_filter}} AS cohort,
     COALESCE(
         f.cohort_order,
-        CASE '{{cohort_filter}}'
+        CASE {{cohort_filter}}
             WHEN 'Shrimps (<1 BTC)' THEN 1
             WHEN 'Crab (1-10 BTC)' THEN 2
             WHEN 'Octopus (10-50 BTC)' THEN 3
