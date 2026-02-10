@@ -2,7 +2,7 @@
 
 This document provides an overview of all SQL queries in the `/queries/` directory, including their purpose, input/output schemas, and dependencies.
 
-> **Last Updated:** 2026-02-02
+> **Last Updated:** 2026-02-10
 
 ---
 
@@ -15,6 +15,7 @@ This document provides an overview of all SQL queries in the `/queries/` directo
   - [bitcoin_tx_features_daily.sql](#bitcoin_tx_features_dailysql) (Base Query)
   - [bitcoin_human_factor_scoring_v2.sql](#bitcoin_human_factor_scoring_v2sql)
   - [bitcoin_human_factor_cohort_matrix.sql](#bitcoin_human_factor_cohort_matrixsql)
+  - [bitcoin_cohort_matrix_drilldown.sql](#bitcoin_cohort_matrix_drilldownsql)
   - [bitcoin_cohort_distribution_v2.sql](#bitcoin_cohort_distribution_v2sql)
   - [bitcoin_utxo_heuristics_v2.sql](#bitcoin_utxo_heuristics_v2sql)
   - [bitcoin_privacy_heuristics_v3.sql](#bitcoin_privacy_heuristics_v3sql)
@@ -56,6 +57,7 @@ queries/
 | [bitcoin_tx_features_daily.sql](#bitcoin_tx_features_dailysql) | Base | TBD | Unified base query - computes ALL transaction features |
 | [bitcoin_human_factor_scoring_v2.sql](#bitcoin_human_factor_scoring_v2sql) | Nested | TBD | Aggregates by day + score band |
 | [bitcoin_human_factor_cohort_matrix.sql](#bitcoin_human_factor_cohort_matrixsql) | Nested | TBD | Cross-tabulation: score band × cohort |
+| [bitcoin_cohort_matrix_drilldown.sql](#bitcoin_cohort_matrix_drilldownsql) | Nested (2-level) | TBD | Cohort drilldown with zero-fill densification |
 | [bitcoin_cohort_distribution_v2.sql](#bitcoin_cohort_distribution_v2sql) | Nested | TBD | Aggregates by day + cohort |
 | [bitcoin_utxo_heuristics_v2.sql](#bitcoin_utxo_heuristics_v2sql) | Nested | TBD | Aggregates by day + intent |
 | [bitcoin_privacy_heuristics_v3.sql](#bitcoin_privacy_heuristics_v3sql) | Nested | TBD | Privacy analysis on "other" intent |
@@ -98,7 +100,18 @@ The V2 architecture uses a single base query that computes ALL transaction featu
 │ day,band   │ │ day,band,  │ │ day,cohort  │ │ day,intent │ │ day,issue  │
 │            │ │ cohort     │ │             │ │            │ │            │
 │ (1 level)  │ │ (1 level)  │ │ (1 level)   │ │ (1 level)  │ │ (1 level)  │
-└────────────┘ └────────────┘ └─────────────┘ └────────────┘ └────────────┘
+└────────────┘ └─────┬──────┘ └─────────────┘ └────────────┘ └────────────┘
+                     │
+                     ▼
+               ┌────────────┐
+               │ cohort_    │
+               │ matrix_    │
+               │ drilldown  │
+               │            │
+               │ Filter +   │
+               │ zero-fill  │
+               │ (2 level)  │
+               └────────────┘
 ```
 
 **Key Design Decisions:**
@@ -255,6 +268,68 @@ Cross-tabulates human factor score bands with BTC volume cohorts. Enables analys
 | Shark | 500-1,000 BTC | 6 |
 | Whale | 1,000-5,000 BTC | 7 |
 | Humpback | > 5,000 BTC | 8 |
+
+---
+
+### bitcoin_cohort_matrix_drilldown.sql
+
+**Path:** `queries/bitcoin/bitcoin_cohort_matrix_drilldown.sql`
+**Type:** Nested Query (2 levels deep)
+
+**Description:**
+Filters the cohort matrix to a single cohort via `{{cohort_filter}}` parameter and applies zero-fill densification across the day × score_band grid. Eliminates sparse-matrix gaps for dashboard line/area charts. 2-level nesting: drilldown → cohort_matrix (query_6663464) → base (query_6638509).
+
+#### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `{{cohort_filter}}` | VARCHAR | Cohort to drill into (e.g., 'Shrimps (<1 BTC)') |
+| `{{start_date}}` | DATE | Analysis start date |
+| `{{end_date}}` | DATE | Analysis end date |
+
+#### cohort_filter Valid Values
+
+| Value | cohort_order |
+|-------|-------------|
+| `Shrimps (<1 BTC)` | 1 |
+| `Crab (1-10 BTC)` | 2 |
+| `Octopus (10-50 BTC)` | 3 |
+| `Fish (50-100 BTC)` | 4 |
+| `Dolphin (100-500 BTC)` | 5 |
+| `Shark (500-1,000 BTC)` | 6 |
+| `Whale (1,000-5,000 BTC)` | 7 |
+| `Humpback (>5,000 BTC)` | 8 |
+
+Configure as a Dune dropdown widget with these 8 values. The parameter value must match the exact cohort label string including the parenthetical BTC range.
+
+#### Output Schema
+
+| Column | Type | Zero-fill | Description |
+|--------|------|-----------|-------------|
+| `day` | DATE | spine | Date (every day in range) |
+| `score_band` | VARCHAR | spine | Score range (all 10 bands per day) |
+| `score_band_order` | BIGINT | spine | Numeric ordering (1-10) |
+| `cohort` | VARCHAR | constant | Filtered cohort name |
+| `cohort_order` | BIGINT | constant | Filtered cohort order |
+| `tx_count` | BIGINT | 0 | Number of transactions |
+| `btc_volume` | DOUBLE | 0.0 | Total BTC moved |
+| `avg_score` | DOUBLE | NULL | Average score in segment |
+| `avg_fee_btc` | DOUBLE | 0.0 | Average transaction fee in BTC |
+| `total_fee_btc` | DOUBLE | 0.0 | Total fees paid in BTC |
+| `tx_with_address_reuse` | BIGINT | 0 | Count of txs with address reuse |
+| `tx_with_output_mismatch` | BIGINT | 0 | Count of txs with output type mismatch |
+| `pct_address_reuse` | DOUBLE | NULL | Percentage of txs with address reuse |
+
+#### Dense Output Guarantee
+
+Unlike the parent cohort matrix (which is sparse), this query guarantees exactly `N_days × 10` rows in the output, where `N_days = date_diff('day', start_date, end_date)`. Every (day, score_band) cell is present. Missing cells are zero-filled with appropriate defaults (0 for counts, 0.0 for sums, NULL for averages and percentages).
+
+#### Notes
+
+- First 2-level nested query in the repository
+- 2-level nesting means no caching at either level; execution cost is the full chain
+- Configure `{{cohort_filter}}` as a Dune dropdown widget bound to the 8 cohort labels
+- See `docs/dashboard_brief_human_factor_cohort_matrix.md` Section 10 for visualization guidance
 
 ---
 
