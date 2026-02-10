@@ -239,22 +239,22 @@ drilldown AS (
 
 -- 1. Dense Grid Completeness (primary validation)
 --    Verifies zero-fill produces exactly 10 rows with correct NULL semantics
-SELECT
-    COUNT(*) AS total_rows,
-    COUNT(DISTINCT score_band) AS distinct_bands,
-    SUM(CASE WHEN tx_count > 0 THEN 1 ELSE 0 END) AS populated_rows,
-    SUM(CASE WHEN tx_count = 0 THEN 1 ELSE 0 END) AS zero_filled_rows,
-    -- NULL invariant: populated rows must have non-NULL avg_score
-    SUM(CASE WHEN tx_count > 0 AND avg_score IS NULL THEN 1 ELSE 0 END) AS err_missing_avg_score,
-    -- NULL invariant: zero-filled rows must have NULL avg_score
-    SUM(CASE WHEN tx_count = 0 AND avg_score IS NOT NULL THEN 1 ELSE 0 END) AS err_false_avg_score,
-    -- NULL invariant: zero-filled rows must have NULL pct_address_reuse
-    SUM(CASE WHEN tx_count = 0 AND pct_address_reuse IS NOT NULL THEN 1 ELSE 0 END) AS err_false_pct_reuse,
-    -- All rows must have cohort = 'Shrimps (<1 BTC)'
-    COUNT(DISTINCT cohort) AS distinct_cohorts,
-    MIN(cohort_order) AS min_cohort_order,
-    MAX(cohort_order) AS max_cohort_order
-FROM drilldown
+-- SELECT
+--     COUNT(*) AS total_rows,
+--     COUNT(DISTINCT score_band) AS distinct_bands,
+--     SUM(CASE WHEN tx_count > 0 THEN 1 ELSE 0 END) AS populated_rows,
+--     SUM(CASE WHEN tx_count = 0 THEN 1 ELSE 0 END) AS zero_filled_rows,
+--     -- NULL invariant: populated rows must have non-NULL avg_score
+--     SUM(CASE WHEN tx_count > 0 AND avg_score IS NULL THEN 1 ELSE 0 END) AS err_missing_avg_score,
+--     -- NULL invariant: zero-filled rows must have NULL avg_score
+--     SUM(CASE WHEN tx_count = 0 AND avg_score IS NOT NULL THEN 1 ELSE 0 END) AS err_false_avg_score,
+--     -- NULL invariant: zero-filled rows must have NULL pct_address_reuse
+--     SUM(CASE WHEN tx_count = 0 AND pct_address_reuse IS NOT NULL THEN 1 ELSE 0 END) AS err_false_pct_reuse,
+--     -- All rows must have cohort = 'Shrimps (<1 BTC)'
+--     COUNT(DISTINCT cohort) AS distinct_cohorts,
+--     MIN(cohort_order) AS min_cohort_order,
+--     MAX(cohort_order) AS max_cohort_order
+-- FROM drilldown
 -- EXPECTED:
 --   total_rows = 10
 --   distinct_bands = 10
@@ -270,24 +270,24 @@ FROM drilldown
 
 -- 3. Aggregation Invariant: drilldown totals must match sparse matrix
 --    for the same cohort
--- SELECT
---     'drilldown' AS source,
---     SUM(tx_count) AS total_tx,
---     ROUND(SUM(btc_volume), 8) AS total_btc,
---     ROUND(SUM(total_fee_btc), 8) AS total_fees,
---     SUM(tx_with_address_reuse) AS total_addr_reuse,
---     SUM(tx_with_output_mismatch) AS total_output_mismatch
--- FROM drilldown
--- UNION ALL
--- SELECT
---     'sparse_matrix' AS source,
---     SUM(tx_count) AS total_tx,
---     ROUND(SUM(btc_volume), 8) AS total_btc,
---     ROUND(SUM(total_fee_btc), 8) AS total_fees,
---     SUM(tx_with_address_reuse) AS total_addr_reuse,
---     SUM(tx_with_output_mismatch) AS total_output_mismatch
--- FROM cohort_matrix
--- WHERE cohort = 'Shrimps (<1 BTC)'
+SELECT
+    'drilldown' AS source,
+    SUM(tx_count) AS total_tx,
+    ROUND(SUM(btc_volume), 8) AS total_btc,
+    ROUND(SUM(total_fee_btc), 8) AS total_fees,
+    SUM(tx_with_address_reuse) AS total_addr_reuse,
+    SUM(tx_with_output_mismatch) AS total_output_mismatch
+FROM drilldown
+UNION ALL
+SELECT
+    'sparse_matrix' AS source,
+    SUM(tx_count) AS total_tx,
+    ROUND(SUM(btc_volume), 8) AS total_btc,
+    ROUND(SUM(total_fee_btc), 8) AS total_fees,
+    SUM(tx_with_address_reuse) AS total_addr_reuse,
+    SUM(tx_with_output_mismatch) AS total_output_mismatch
+FROM cohort_matrix
+WHERE cohort = 'Shrimps (<1 BTC)'
 -- EXPECTED: both rows have identical values for all columns
 
 -- 4. Column Presence Check (uncomment to verify all 13 output columns)
