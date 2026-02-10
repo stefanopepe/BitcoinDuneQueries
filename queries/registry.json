@@ -39,7 +39,7 @@
     {
       "name": "bitcoin_cohort_matrix_drilldown",
       "file": "queries/bitcoin/bitcoin_cohort_matrix_drilldown.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6680124,
       "type": "nested",
       "architecture": "v2",
       "smoke_test": "tests/bitcoin_cohort_matrix_drilldown_smoke.sql",
