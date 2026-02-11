@@ -6,9 +6,13 @@
 --              backward compatibility.
 -- Author: stefanopepe
 -- Created: 2026-02-02
--- Updated: 2026-02-02
+-- Updated: 2026-02-10
 -- Architecture: 1-level nested query on bitcoin_tx_features_daily
--- Base Query: query_<BASE_QUERY_ID> (bitcoin_tx_features_daily)
+-- Base Query: query_6638509 (bitcoin_tx_features_daily)
+-- ============================================================
+-- Parameters:
+--   {{start_date}} - Analysis start date (Dune date picker)
+--   {{end_date}}   - Analysis end date (Dune date picker)
 -- ============================================================
 -- Scoring Model (computed in base query):
 --   BASE_SCORE = 50 (neutral)
@@ -47,6 +51,8 @@ SELECT
     COUNT(*) AS tx_count,
     SUM(total_input_btc) AS btc_volume,
     AVG(human_factor_score) AS avg_score
-FROM query_<BASE_QUERY_ID>
+FROM query_6638509
+WHERE day >= CAST('{{start_date}}' AS TIMESTAMP)
+  AND day < CAST('{{end_date}}' AS TIMESTAMP)
 GROUP BY day, score_band, score_band_order
 ORDER BY day, score_band_order

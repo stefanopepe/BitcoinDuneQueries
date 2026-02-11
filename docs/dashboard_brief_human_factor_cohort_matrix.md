@@ -337,3 +337,96 @@ Additions that would require new data sources or base query changes:
 - USD-denominated values (requires `prices.usd` join)
 - Entity/wallet-level aggregation (requires address clustering or label tables)
 - Mempool/fee-rate analysis (not in `bitcoin.inputs`/`bitcoin.outputs`)
+
+---
+
+## 10. Cohort Drilldown Query
+
+**Source query:** `queries/bitcoin/bitcoin_cohort_matrix_drilldown.sql`
+**Parent query:** `query_6663464` (bitcoin_human_factor_cohort_matrix)
+**Architecture:** 2-level nested (drilldown → cohort_matrix → base)
+
+### 10.1 Purpose
+
+The drilldown query enables per-cohort deep-dive dashboards. The user selects a single cohort from a `{{cohort_filter}}` dropdown and sees dense, gap-free time series of that cohort's score band breakdown. This solves the sparse-matrix charting problem for individual cohort analysis.
+
+### 10.2 Parameter: `{{cohort_filter}}`
+
+| Widget | Type | Values |
+|--------|------|--------|
+| Dropdown | VARCHAR | 8 cohort labels (see Section 4 for full list) |
+
+The parameter value must exactly match one of the 8 cohort label strings, e.g., `Shrimps (<1 BTC)`. Configure as a Dune dropdown with all 8 values pre-populated.
+
+### 10.3 Zero-fill guarantee
+
+The drilldown output is **dense**: every (day, score_band) cell exists for the filtered cohort. Missing cells are zero-filled. This eliminates the need for downstream zero-fill SQL in dashboard visualizations (unlike the parent matrix, which requires the Section 5.0 pattern).
+
+**COALESCE strategy:**
+
+| Column type | Zero-fill value | Rationale |
+|-------------|-----------------|-----------|
+| Counts (`tx_count`, `tx_with_*`) | `0` | Zero transactions is a valid count |
+| Sums (`btc_volume`, `total_fee_btc`) | `0.0` | Zero volume is valid for empty cells |
+| Averages (`avg_score`) | `NULL` | Average of zero observations is undefined |
+| Percentages (`pct_address_reuse`) | `NULL` | Percentage of zero transactions is undefined |
+| `avg_fee_btc` | `0.0` | Trade-off: 0.0 avoids line-chart gaps; revisit if misleading |
+
+### 10.4 Visualization A -- Level line chart: Score band tx_count over time
+
+**Purpose:** Show how transaction activity distributes across score bands for the selected cohort, day by day.
+
+| Property | Value |
+|----------|-------|
+| X-axis | `day` (date) |
+| Y-axis | `tx_count` |
+| Series / color | `score_band` (10 series, ordered by `score_band_order`) |
+| Chart type | Line |
+
+**Configuration notes:**
+- Order series by `score_band_order` (1 at bottom of legend, 10 at top)
+- Use a diverging color palette: red tones for low bands (0-30, automated), yellow/amber for mid-range (30-60), green tones for high bands (60-100, human)
+- Toggle Y-axis between `tx_count` and `btc_volume` for count vs. economic weight views
+- No zero-fill needed in the visualization layer -- the query output is already dense
+
+### 10.5 Visualization B -- Normalized stacked area: Score band composition (100%)
+
+**Purpose:** Show the proportional composition of score bands within the selected cohort over time, normalizing to 100% to reveal structural shifts.
+
+| Property | Value |
+|----------|-------|
+| X-axis | `day` (date) |
+| Y-axis | `tx_pct` (computed below) |
+| Series / color | `score_band` (10 series) |
+| Chart type | 100% stacked area |
+
+**Data preparation (add to final SELECT or as a wrapper):**
+
+```sql
+SELECT
+    day, score_band, score_band_order,
+    tx_count,
+    tx_count * 100.0 / NULLIF(SUM(tx_count) OVER (PARTITION BY day), 0) AS tx_pct
+FROM query_DRILLDOWN_ID
+ORDER BY day, score_band_order
+```
+
+**Configuration notes:**
+- Days with zero total transactions across all bands will produce NULL percentages -- these render as gaps, which is correct (no data = no chart)
+- Order series by `score_band_order` ascending (band 1 at bottom)
+
+### 10.6 Visualization C -- Absolute stacked area: Score band volume
+
+**Purpose:** Show the absolute BTC volume (or tx count) stacked by score band for the selected cohort, revealing both total activity and its composition.
+
+| Property | Value |
+|----------|-------|
+| X-axis | `day` (date) |
+| Y-axis | `btc_volume` (or `tx_count`) |
+| Series / color | `score_band` (10 series) |
+| Chart type | Stacked area |
+
+**Configuration notes:**
+- Stacking is valid here because `btc_volume` is additive (unlike `avg_score`)
+- Zero-filled cells correctly render as zero-height segments
+- Use the same color palette as Visualization A for consistency

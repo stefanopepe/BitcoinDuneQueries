@@ -6,7 +6,7 @@
 --              Enables analysis of how scoring varies by holder size.
 -- Author: stefanopepe
 -- Created: 2026-02-02
--- Updated: 2026-02-06
+-- Updated: 2026-02-10
 -- Architecture: 1-level nested query on bitcoin_tx_features_daily
 -- Base Query: query_6638509 (https://dune.com/queries/6638509)
 -- ============================================================
@@ -35,8 +35,8 @@
 --   Humpback   - > 5,000 BTC
 -- ============================================================
 -- Parameters:
---   {{start_date}} - Analysis start date (DATE format: '2026-01-07')
---   {{end_date}}   - Analysis end date (DATE format: '2026-02-06')
+--   {{start_date}} - Analysis start date (Dune date picker)
+--   {{end_date}}   - Analysis end date (Dune date picker)
 --
 -- Parameter Configuration Notes:
 --   - Dune parameters require UI configuration (date picker widgets)
@@ -78,7 +78,7 @@ SELECT
     SUM(CASE WHEN output_type_mismatch THEN 1 ELSE 0 END) AS tx_with_output_mismatch,
     ROUND(100.0 * SUM(CASE WHEN has_address_reuse THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 2) AS pct_address_reuse
 FROM query_6638509
-WHERE day >= DATE '{{start_date}}'
-  AND day < DATE '{{end_date}}'
+WHERE day >= CAST('{{start_date}}' AS TIMESTAMP)
+  AND day < CAST('{{end_date}}' AS TIMESTAMP)
 GROUP BY day, score_band, score_band_order, cohort, cohort_order
 ORDER BY day, score_band_order, cohort_order
