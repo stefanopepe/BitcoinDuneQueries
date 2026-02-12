@@ -126,7 +126,7 @@ same_tx_flows AS (
 -- Borrow on P1, then supply on P2 in different transaction
 -- ============================================================
 
-cross_tx_flows AS (
+cross_tx_ranked AS (
     SELECT
         CONCAT(
             CAST(b.tx_hash AS VARCHAR), '-',
@@ -147,7 +147,12 @@ cross_tx_flows AS (
         ) AS time_delta_seconds,
         FALSE AS is_same_tx,
         b.amount,
-        b.amount_usd
+        b.amount_usd,
+        -- Deduplicate: keep only the first supply after each borrow
+        ROW_NUMBER() OVER (
+            PARTITION BY b.tx_hash, b.evt_index
+            ORDER BY s.block_time
+        ) AS rn
     FROM borrows b
     INNER JOIN supplies s
         ON s.entity_address = b.entity_address
@@ -157,11 +162,15 @@ cross_tx_flows AS (
         -- Time window: supply within 2 minutes after borrow
         AND s.block_time > b.block_time
         AND s.block_time <= b.block_time + INTERVAL '2' MINUTE
-    -- Deduplicate: keep only the first supply after each borrow
-    QUALIFY ROW_NUMBER() OVER (
-        PARTITION BY b.tx_hash, b.evt_index
-        ORDER BY s.block_time
-    ) = 1
+),
+
+cross_tx_flows AS (
+    SELECT flow_id, block_date, entity_address, source_protocol, dest_protocol,
+           asset_address, asset_symbol, borrow_tx_hash, supply_tx_hash,
+           borrow_time, supply_time, time_delta_seconds, is_same_tx,
+           amount, amount_usd
+    FROM cross_tx_ranked
+    WHERE rn = 1
 ),
 
 -- ============================================================
