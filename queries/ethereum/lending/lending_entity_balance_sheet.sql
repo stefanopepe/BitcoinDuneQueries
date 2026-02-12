@@ -23,11 +23,18 @@
 -- ============================================================
 
 WITH
--- Reference the unified action ledger base query
--- Replace query_<BASE_QUERY_ID> with actual query ID when deploying
+-- Reference the unified action ledger base query (column-pruned)
 base_actions AS (
-    SELECT *
-    FROM query_<UNIFIED_BASE_QUERY_ID>
+    SELECT
+        block_date,
+        tx_hash,
+        entity_address,
+        protocol,
+        asset_address,
+        asset_symbol,
+        action_type,
+        amount
+    FROM query_6687961
 ),
 
 -- Compute daily position changes per entity, protocol, asset

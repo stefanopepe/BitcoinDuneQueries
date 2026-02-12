@@ -21,15 +21,24 @@
 -- ============================================================
 
 WITH
--- Reference the loop detection query
+-- Reference the loop detection query (column-pruned)
 loops AS (
-    SELECT *
+    SELECT
+        entity_address,
+        start_date,
+        recursion_depth,
+        gross_borrowed_usd
     FROM query_<LOOP_DETECTION_QUERY_ID>
 ),
 
--- Reference the flow stitching query for protocol pairs
+-- Reference the flow stitching query (column-pruned)
 flows AS (
-    SELECT *
+    SELECT
+        block_date,
+        source_protocol,
+        dest_protocol,
+        entity_address,
+        amount_usd
     FROM query_<FLOW_STITCHING_QUERY_ID>
 ),
 

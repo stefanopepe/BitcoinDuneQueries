@@ -26,9 +26,17 @@
 -- ============================================================
 
 WITH
--- Reference the flow stitching query
+-- Reference the flow stitching query (column-pruned)
 flows AS (
-    SELECT *
+    SELECT
+        block_date,
+        source_protocol,
+        dest_protocol,
+        asset_symbol,
+        entity_address,
+        amount_usd,
+        time_delta_seconds,
+        is_same_tx
     FROM query_<FLOW_STITCHING_QUERY_ID>
 ),
 
@@ -65,44 +73,6 @@ daily_edges AS (
         asset_symbol
 ),
 
--- ============================================================
--- ALSO PRODUCE WEEKLY AND MONTHLY AGGREGATES
--- ============================================================
-
-weekly_edges AS (
-    SELECT
-        date_trunc('week', day) AS week,
-        source,
-        target,
-        SUM(value) AS value,
-        SUM(entity_count) AS entity_count,
-        SUM(flow_count) AS flow_count,
-        AVG(avg_time_delta_seconds) AS avg_time_delta_seconds
-    FROM daily_edges
-    GROUP BY
-        date_trunc('week', day),
-        source,
-        target
-),
-
--- ============================================================
--- PROTOCOL-LEVEL AGGREGATES (ignoring asset)
--- For simpler Sankey diagrams
--- ============================================================
-
-protocol_level_edges AS (
-    SELECT
-        block_date AS day,
-        source_protocol AS source,
-        dest_protocol AS target,
-        SUM(COALESCE(amount_usd, 0)) AS value,
-        COUNT(DISTINCT entity_address) AS entity_count,
-        COUNT(*) AS flow_count
-    FROM flows
-    GROUP BY
-        block_date,
-        source_protocol,
-        dest_protocol
 )
 
 -- ============================================================

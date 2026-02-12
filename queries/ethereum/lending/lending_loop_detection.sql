@@ -27,9 +27,18 @@
 -- ============================================================
 
 WITH
--- Reference the flow stitching query
+-- Reference the flow stitching query (column-pruned)
 flows AS (
-    SELECT *
+    SELECT
+        flow_id,
+        block_date,
+        entity_address,
+        source_protocol,
+        dest_protocol,
+        asset_address,
+        borrow_tx_hash,
+        borrow_time,
+        amount_usd
     FROM query_<FLOW_STITCHING_QUERY_ID>
 ),
 
@@ -150,4 +159,3 @@ SELECT
     END AS loop_status
 FROM max_depth_loops
 WHERE recursion_depth >= 1  -- At least one cross-protocol hop
-ORDER BY start_date DESC, gross_borrowed_usd DESC

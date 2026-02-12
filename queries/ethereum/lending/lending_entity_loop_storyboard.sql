@@ -27,10 +27,20 @@
 -- ============================================================
 
 WITH
--- Reference the unified action ledger
+-- Reference the unified action ledger (column-pruned)
 base_actions AS (
-    SELECT *
-    FROM query_<UNIFIED_BASE_QUERY_ID>
+    SELECT
+        block_time,
+        block_date,
+        tx_hash,
+        evt_index,
+        protocol,
+        action_type,
+        entity_address,
+        asset_symbol,
+        amount,
+        amount_usd
+    FROM query_6687961
 ),
 
 -- ============================================================

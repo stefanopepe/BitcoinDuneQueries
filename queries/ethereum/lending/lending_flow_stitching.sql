@@ -30,10 +30,22 @@
 -- ============================================================
 
 WITH
--- Reference the unified action ledger base query
+-- Reference the unified action ledger base query (column-pruned)
 base_actions AS (
-    SELECT *
-    FROM query_<UNIFIED_BASE_QUERY_ID>
+    SELECT
+        block_time,
+        block_date,
+        block_number,
+        tx_hash,
+        evt_index,
+        protocol,
+        action_type,
+        entity_address,
+        asset_address,
+        asset_symbol,
+        amount,
+        amount_usd
+    FROM query_6687961
 ),
 
 -- Extract borrow events (source of cross-protocol flows)
@@ -186,4 +198,3 @@ SELECT
         ELSE 'delayed'
     END AS flow_speed_category
 FROM all_flows
-ORDER BY block_date DESC, borrow_time DESC

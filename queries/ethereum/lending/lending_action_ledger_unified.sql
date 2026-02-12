@@ -78,15 +78,20 @@ checkpoint AS (
 -- STABLECOIN AND WRAPPER TOKEN MAPPINGS
 -- ============================================================
 
-stablecoins AS (
-    SELECT address
+-- Stablecoin addresses, symbols, and decimals (eliminates tokens.erc20 JOIN)
+stablecoin_metadata AS (
+    SELECT address, symbol, decimals
     FROM (
         VALUES
-            (0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48),  -- USDC
-            (0xdac17f958d2ee523a2206206994597c13d831ec7),  -- USDT
-            (0x6b175474e89094c44da98b954eedeac495271d0f),  -- DAI
-            (0x853d955acef822db058eb8505911ed77f175b99e)   -- FRAX
-    ) AS t(address)
+            (0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48, 'USDC',  6),
+            (0xdac17f958d2ee523a2206206994597c13d831ec7, 'USDT',  6),
+            (0x6b175474e89094c44da98b954eedeac495271d0f, 'DAI',  18),
+            (0x853d955acef822db058eb8505911ed77f175b99e, 'FRAX',  18)
+    ) AS t(address, symbol, decimals)
+),
+
+stablecoins AS (
+    SELECT address FROM stablecoin_metadata
 ),
 
 -- Map wrapper tokens to underlying (Compound V2 cTokens, Compound V3 Comet)
@@ -124,7 +129,7 @@ morpho_blue_stablecoin_markets AS (
 morpho_blue_supply AS (
     SELECT
         s.evt_block_time AS block_time,
-        CAST(date_trunc('day', s.evt_block_time) AS DATE) AS block_date,
+        s.evt_block_date AS block_date,
         s.evt_block_number AS block_number,
         s.evt_tx_hash AS tx_hash,
         s.evt_index,
@@ -137,14 +142,14 @@ morpho_blue_supply AS (
     FROM morpho_blue_ethereum.morphoblue_evt_supply s
     INNER JOIN morpho_blue_stablecoin_markets m ON m.market_id = s.id
     CROSS JOIN checkpoint c
-    WHERE CAST(date_trunc('day', s.evt_block_time) AS DATE) >= c.cutoff_date
-      AND CAST(date_trunc('day', s.evt_block_time) AS DATE) < CURRENT_DATE
+    WHERE s.evt_block_date >= c.cutoff_date
+      AND s.evt_block_date < CURRENT_DATE
 ),
 
 morpho_blue_borrow AS (
     SELECT
         b.evt_block_time AS block_time,
-        CAST(date_trunc('day', b.evt_block_time) AS DATE) AS block_date,
+        b.evt_block_date AS block_date,
         b.evt_block_number AS block_number,
         b.evt_tx_hash AS tx_hash,
         b.evt_index,
@@ -157,14 +162,14 @@ morpho_blue_borrow AS (
     FROM morpho_blue_ethereum.morphoblue_evt_borrow b
     INNER JOIN morpho_blue_stablecoin_markets m ON m.market_id = b.id
     CROSS JOIN checkpoint c
-    WHERE CAST(date_trunc('day', b.evt_block_time) AS DATE) >= c.cutoff_date
-      AND CAST(date_trunc('day', b.evt_block_time) AS DATE) < CURRENT_DATE
+    WHERE b.evt_block_date >= c.cutoff_date
+      AND b.evt_block_date < CURRENT_DATE
 ),
 
 morpho_blue_repay AS (
     SELECT
         r.evt_block_time AS block_time,
-        CAST(date_trunc('day', r.evt_block_time) AS DATE) AS block_date,
+        r.evt_block_date AS block_date,
         r.evt_block_number AS block_number,
         r.evt_tx_hash AS tx_hash,
         r.evt_index,
@@ -177,14 +182,14 @@ morpho_blue_repay AS (
     FROM morpho_blue_ethereum.morphoblue_evt_repay r
     INNER JOIN morpho_blue_stablecoin_markets m ON m.market_id = r.id
     CROSS JOIN checkpoint c
-    WHERE CAST(date_trunc('day', r.evt_block_time) AS DATE) >= c.cutoff_date
-      AND CAST(date_trunc('day', r.evt_block_time) AS DATE) < CURRENT_DATE
+    WHERE r.evt_block_date >= c.cutoff_date
+      AND r.evt_block_date < CURRENT_DATE
 ),
 
 morpho_blue_withdraw AS (
     SELECT
         w.evt_block_time AS block_time,
-        CAST(date_trunc('day', w.evt_block_time) AS DATE) AS block_date,
+        w.evt_block_date AS block_date,
         w.evt_block_number AS block_number,
         w.evt_tx_hash AS tx_hash,
         w.evt_index,
@@ -197,14 +202,14 @@ morpho_blue_withdraw AS (
     FROM morpho_blue_ethereum.morphoblue_evt_withdraw w
     INNER JOIN morpho_blue_stablecoin_markets m ON m.market_id = w.id
     CROSS JOIN checkpoint c
-    WHERE CAST(date_trunc('day', w.evt_block_time) AS DATE) >= c.cutoff_date
-      AND CAST(date_trunc('day', w.evt_block_time) AS DATE) < CURRENT_DATE
+    WHERE w.evt_block_date >= c.cutoff_date
+      AND w.evt_block_date < CURRENT_DATE
 ),
 
 morpho_blue_liquidation AS (
     SELECT
         l.evt_block_time AS block_time,
-        CAST(date_trunc('day', l.evt_block_time) AS DATE) AS block_date,
+        l.evt_block_date AS block_date,
         l.evt_block_number AS block_number,
         l.evt_tx_hash AS tx_hash,
         l.evt_index,
@@ -217,8 +222,8 @@ morpho_blue_liquidation AS (
     FROM morpho_blue_ethereum.morphoblue_evt_liquidate l
     INNER JOIN morpho_blue_stablecoin_markets m ON m.market_id = l.id
     CROSS JOIN checkpoint c
-    WHERE CAST(date_trunc('day', l.evt_block_time) AS DATE) >= c.cutoff_date
-      AND CAST(date_trunc('day', l.evt_block_time) AS DATE) < CURRENT_DATE
+    WHERE l.evt_block_date >= c.cutoff_date
+      AND l.evt_block_date < CURRENT_DATE
 ),
 
 -- ============================================================
@@ -229,7 +234,7 @@ morpho_blue_liquidation AS (
 aave_v3_supply AS (
     SELECT
         s.evt_block_time AS block_time,
-        CAST(date_trunc('day', s.evt_block_time) AS DATE) AS block_date,
+        s.evt_block_date AS block_date,
         s.evt_block_number AS block_number,
         s.evt_tx_hash AS tx_hash,
         s.evt_index,
@@ -241,15 +246,15 @@ aave_v3_supply AS (
         s.amount AS amount_raw
     FROM aave_v3_ethereum.pool_evt_supply s
     CROSS JOIN checkpoint c
-    WHERE CAST(date_trunc('day', s.evt_block_time) AS DATE) >= c.cutoff_date
-      AND CAST(date_trunc('day', s.evt_block_time) AS DATE) < CURRENT_DATE
+    WHERE s.evt_block_date >= c.cutoff_date
+      AND s.evt_block_date < CURRENT_DATE
       AND s.reserve IN (SELECT address FROM stablecoins)
 ),
 
 aave_v3_borrow AS (
     SELECT
         b.evt_block_time AS block_time,
-        CAST(date_trunc('day', b.evt_block_time) AS DATE) AS block_date,
+        b.evt_block_date AS block_date,
         b.evt_block_number AS block_number,
         b.evt_tx_hash AS tx_hash,
         b.evt_index,
@@ -261,15 +266,15 @@ aave_v3_borrow AS (
         b.amount AS amount_raw
     FROM aave_v3_ethereum.pool_evt_borrow b
     CROSS JOIN checkpoint c
-    WHERE CAST(date_trunc('day', b.evt_block_time) AS DATE) >= c.cutoff_date
-      AND CAST(date_trunc('day', b.evt_block_time) AS DATE) < CURRENT_DATE
+    WHERE b.evt_block_date >= c.cutoff_date
+      AND b.evt_block_date < CURRENT_DATE
       AND b.reserve IN (SELECT address FROM stablecoins)
 ),
 
 aave_v3_repay AS (
     SELECT
         r.evt_block_time AS block_time,
-        CAST(date_trunc('day', r.evt_block_time) AS DATE) AS block_date,
+        r.evt_block_date AS block_date,
         r.evt_block_number AS block_number,
         r.evt_tx_hash AS tx_hash,
         r.evt_index,
@@ -281,15 +286,15 @@ aave_v3_repay AS (
         r.amount AS amount_raw
     FROM aave_v3_ethereum.pool_evt_repay r
     CROSS JOIN checkpoint c
-    WHERE CAST(date_trunc('day', r.evt_block_time) AS DATE) >= c.cutoff_date
-      AND CAST(date_trunc('day', r.evt_block_time) AS DATE) < CURRENT_DATE
+    WHERE r.evt_block_date >= c.cutoff_date
+      AND r.evt_block_date < CURRENT_DATE
       AND r.reserve IN (SELECT address FROM stablecoins)
 ),
 
 aave_v3_withdraw AS (
     SELECT
         w.evt_block_time AS block_time,
-        CAST(date_trunc('day', w.evt_block_time) AS DATE) AS block_date,
+        w.evt_block_date AS block_date,
         w.evt_block_number AS block_number,
         w.evt_tx_hash AS tx_hash,
         w.evt_index,
@@ -301,15 +306,15 @@ aave_v3_withdraw AS (
         w.amount AS amount_raw
     FROM aave_v3_ethereum.pool_evt_withdraw w
     CROSS JOIN checkpoint c
-    WHERE CAST(date_trunc('day', w.evt_block_time) AS DATE) >= c.cutoff_date
-      AND CAST(date_trunc('day', w.evt_block_time) AS DATE) < CURRENT_DATE
+    WHERE w.evt_block_date >= c.cutoff_date
+      AND w.evt_block_date < CURRENT_DATE
       AND w.reserve IN (SELECT address FROM stablecoins)
 ),
 
 aave_v3_liquidation AS (
     SELECT
         l.evt_block_time AS block_time,
-        CAST(date_trunc('day', l.evt_block_time) AS DATE) AS block_date,
+        l.evt_block_date AS block_date,
         l.evt_block_number AS block_number,
         l.evt_tx_hash AS tx_hash,
         l.evt_index,
@@ -321,8 +326,8 @@ aave_v3_liquidation AS (
         l.debtToCover AS amount_raw
     FROM aave_v3_ethereum.pool_evt_liquidationcall l
     CROSS JOIN checkpoint c
-    WHERE CAST(date_trunc('day', l.evt_block_time) AS DATE) >= c.cutoff_date
-      AND CAST(date_trunc('day', l.evt_block_time) AS DATE) < CURRENT_DATE
+    WHERE l.evt_block_date >= c.cutoff_date
+      AND l.evt_block_date < CURRENT_DATE
       AND l.debtAsset IN (SELECT address FROM stablecoins)
 ),
 
@@ -337,7 +342,7 @@ aave_v3_liquidation AS (
 compound_v3_supply AS (
     SELECT
         s.evt_block_time AS block_time,
-        CAST(date_trunc('day', s.evt_block_time) AS DATE) AS block_date,
+        s.evt_block_date AS block_date,
         s.evt_block_number AS block_number,
         s.evt_tx_hash AS tx_hash,
         s.evt_index,
@@ -349,8 +354,8 @@ compound_v3_supply AS (
         s.amount AS amount_raw
     FROM compound_v3_ethereum.comet_evt_supply s
     CROSS JOIN checkpoint c
-    WHERE CAST(date_trunc('day', s.evt_block_time) AS DATE) >= c.cutoff_date
-      AND CAST(date_trunc('day', s.evt_block_time) AS DATE) < CURRENT_DATE
+    WHERE s.evt_block_date >= c.cutoff_date
+      AND s.evt_block_date < CURRENT_DATE
       -- USDC Comet only
       AND s.contract_address = 0xc3d688b66703497daa19211eedff47f25384cdc3
 ),
@@ -358,7 +363,7 @@ compound_v3_supply AS (
 compound_v3_borrow AS (
     SELECT
         w.evt_block_time AS block_time,
-        CAST(date_trunc('day', w.evt_block_time) AS DATE) AS block_date,
+        w.evt_block_date AS block_date,
         w.evt_block_number AS block_number,
         w.evt_tx_hash AS tx_hash,
         w.evt_index,
@@ -370,15 +375,15 @@ compound_v3_borrow AS (
         w.amount AS amount_raw
     FROM compound_v3_ethereum.comet_evt_withdraw w
     CROSS JOIN checkpoint c
-    WHERE CAST(date_trunc('day', w.evt_block_time) AS DATE) >= c.cutoff_date
-      AND CAST(date_trunc('day', w.evt_block_time) AS DATE) < CURRENT_DATE
+    WHERE w.evt_block_date >= c.cutoff_date
+      AND w.evt_block_date < CURRENT_DATE
       AND w.contract_address = 0xc3d688b66703497daa19211eedff47f25384cdc3
 ),
 
 compound_v3_liquidation AS (
     SELECT
         l.evt_block_time AS block_time,
-        CAST(date_trunc('day', l.evt_block_time) AS DATE) AS block_date,
+        l.evt_block_date AS block_date,
         l.evt_block_number AS block_number,
         l.evt_tx_hash AS tx_hash,
         l.evt_index,
@@ -391,8 +396,8 @@ compound_v3_liquidation AS (
         CAST(l.basePaidOut AS UINT256) AS amount_raw
     FROM compound_v3_ethereum.comet_evt_absorbdebt l
     CROSS JOIN checkpoint c
-    WHERE CAST(date_trunc('day', l.evt_block_time) AS DATE) >= c.cutoff_date
-      AND CAST(date_trunc('day', l.evt_block_time) AS DATE) < CURRENT_DATE
+    WHERE l.evt_block_date >= c.cutoff_date
+      AND l.evt_block_date < CURRENT_DATE
       AND l.contract_address = 0xc3d688b66703497daa19211eedff47f25384cdc3
 ),
 
@@ -404,7 +409,7 @@ compound_v3_liquidation AS (
 compound_v2_supply AS (
     SELECT
         m.evt_block_time AS block_time,
-        CAST(date_trunc('day', m.evt_block_time) AS DATE) AS block_date,
+        m.evt_block_date AS block_date,
         m.evt_block_number AS block_number,
         m.evt_tx_hash AS tx_hash,
         m.evt_index,
@@ -416,8 +421,8 @@ compound_v2_supply AS (
         m.mintAmount AS amount_raw
     FROM compound_ethereum.cerc20delegator_evt_mint m
     CROSS JOIN checkpoint c
-    WHERE CAST(date_trunc('day', m.evt_block_time) AS DATE) >= c.cutoff_date
-      AND CAST(date_trunc('day', m.evt_block_time) AS DATE) < CURRENT_DATE
+    WHERE m.evt_block_date >= c.cutoff_date
+      AND m.evt_block_date < CURRENT_DATE
       AND m.contract_address IN (
           0x39aa39c021dfbae8fac545936693ac917d5e7563,  -- cUSDC
           0xf650c3d88d12db855b8bf7d11be6c55a4e07dcc9,  -- cUSDT
@@ -428,7 +433,7 @@ compound_v2_supply AS (
 compound_v2_borrow AS (
     SELECT
         b.evt_block_time AS block_time,
-        CAST(date_trunc('day', b.evt_block_time) AS DATE) AS block_date,
+        b.evt_block_date AS block_date,
         b.evt_block_number AS block_number,
         b.evt_tx_hash AS tx_hash,
         b.evt_index,
@@ -440,8 +445,8 @@ compound_v2_borrow AS (
         b.borrowAmount AS amount_raw
     FROM compound_ethereum.cerc20delegator_evt_borrow b
     CROSS JOIN checkpoint c
-    WHERE CAST(date_trunc('day', b.evt_block_time) AS DATE) >= c.cutoff_date
-      AND CAST(date_trunc('day', b.evt_block_time) AS DATE) < CURRENT_DATE
+    WHERE b.evt_block_date >= c.cutoff_date
+      AND b.evt_block_date < CURRENT_DATE
       AND b.contract_address IN (
           0x39aa39c021dfbae8fac545936693ac917d5e7563,
           0xf650c3d88d12db855b8bf7d11be6c55a4e07dcc9,
@@ -452,7 +457,7 @@ compound_v2_borrow AS (
 compound_v2_repay AS (
     SELECT
         r.evt_block_time AS block_time,
-        CAST(date_trunc('day', r.evt_block_time) AS DATE) AS block_date,
+        r.evt_block_date AS block_date,
         r.evt_block_number AS block_number,
         r.evt_tx_hash AS tx_hash,
         r.evt_index,
@@ -464,8 +469,8 @@ compound_v2_repay AS (
         r.repayAmount AS amount_raw
     FROM compound_ethereum.cerc20delegator_evt_repayborrow r
     CROSS JOIN checkpoint c
-    WHERE CAST(date_trunc('day', r.evt_block_time) AS DATE) >= c.cutoff_date
-      AND CAST(date_trunc('day', r.evt_block_time) AS DATE) < CURRENT_DATE
+    WHERE r.evt_block_date >= c.cutoff_date
+      AND r.evt_block_date < CURRENT_DATE
       AND r.contract_address IN (
           0x39aa39c021dfbae8fac545936693ac917d5e7563,
           0xf650c3d88d12db855b8bf7d11be6c55a4e07dcc9,
@@ -476,7 +481,7 @@ compound_v2_repay AS (
 compound_v2_withdraw AS (
     SELECT
         r.evt_block_time AS block_time,
-        CAST(date_trunc('day', r.evt_block_time) AS DATE) AS block_date,
+        r.evt_block_date AS block_date,
         r.evt_block_number AS block_number,
         r.evt_tx_hash AS tx_hash,
         r.evt_index,
@@ -488,8 +493,8 @@ compound_v2_withdraw AS (
         r.redeemAmount AS amount_raw
     FROM compound_ethereum.cerc20delegator_evt_redeem r
     CROSS JOIN checkpoint c
-    WHERE CAST(date_trunc('day', r.evt_block_time) AS DATE) >= c.cutoff_date
-      AND CAST(date_trunc('day', r.evt_block_time) AS DATE) < CURRENT_DATE
+    WHERE r.evt_block_date >= c.cutoff_date
+      AND r.evt_block_date < CURRENT_DATE
       AND r.contract_address IN (
           0x39aa39c021dfbae8fac545936693ac917d5e7563,
           0xf650c3d88d12db855b8bf7d11be6c55a4e07dcc9,
@@ -500,7 +505,7 @@ compound_v2_withdraw AS (
 compound_v2_liquidation AS (
     SELECT
         l.evt_block_time AS block_time,
-        CAST(date_trunc('day', l.evt_block_time) AS DATE) AS block_date,
+        l.evt_block_date AS block_date,
         l.evt_block_number AS block_number,
         l.evt_tx_hash AS tx_hash,
         l.evt_index,
@@ -512,8 +517,8 @@ compound_v2_liquidation AS (
         l.repayAmount AS amount_raw
     FROM compound_ethereum.cerc20delegator_evt_liquidateborrow l
     CROSS JOIN checkpoint c
-    WHERE CAST(date_trunc('day', l.evt_block_time) AS DATE) >= c.cutoff_date
-      AND CAST(date_trunc('day', l.evt_block_time) AS DATE) < CURRENT_DATE
+    WHERE l.evt_block_date >= c.cutoff_date
+      AND l.evt_block_date < CURRENT_DATE
       AND l.contract_address IN (
           0x39aa39c021dfbae8fac545936693ac917d5e7563,
           0xf650c3d88d12db855b8bf7d11be6c55a4e07dcc9,
@@ -568,20 +573,23 @@ enriched AS (
         COALESCE(e.on_behalf_of, e.user_address) AS entity_address,
         -- Resolve wrapper tokens (cToken/Comet) to underlying
         COALESCE(w.underlying, e.raw_asset_address) AS asset_address,
-        t.symbol AS asset_symbol,
+        sm.symbol AS asset_symbol,
         e.amount_raw,
-        CAST(e.amount_raw AS DOUBLE) / POWER(10, t.decimals) AS amount,
-        CAST(e.amount_raw AS DOUBLE) / POWER(10, t.decimals) * p.price AS amount_usd
+        CAST(e.amount_raw AS DOUBLE) / POWER(10, sm.decimals) AS amount,
+        CAST(e.amount_raw AS DOUBLE) / POWER(10, sm.decimals) * p.price AS amount_usd
     FROM all_events e
     LEFT JOIN wrapper_to_underlying w
         ON w.wrapper = e.raw_asset_address
-    LEFT JOIN tokens.erc20 t
-        ON t.contract_address = COALESCE(w.underlying, e.raw_asset_address)
-        AND t.blockchain = 'ethereum'
+    -- Hardcoded metadata: eliminates tokens.erc20 JOIN
+    LEFT JOIN stablecoin_metadata sm
+        ON sm.address = COALESCE(w.underlying, e.raw_asset_address)
+    -- Time-bounded price JOIN: partition pruning on prices.usd
     LEFT JOIN prices.usd p
         ON p.contract_address = COALESCE(w.underlying, e.raw_asset_address)
         AND p.blockchain = 'ethereum'
         AND p.minute = date_trunc('minute', e.block_time)
+        AND p.minute >= (SELECT cutoff_date FROM checkpoint)
+        AND p.minute < CURRENT_DATE
 ),
 
 -- ============================================================
@@ -602,4 +610,3 @@ kept_old AS (
 SELECT * FROM kept_old
 UNION ALL
 SELECT * FROM new_data
-ORDER BY block_date, block_time, tx_hash, evt_index
