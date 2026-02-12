@@ -39,7 +39,7 @@ flows AS (
         dest_protocol,
         entity_address,
         amount_usd
-    FROM query_<FLOW_STITCHING_QUERY_ID>
+    FROM query_6690272
 ),
 
 -- ============================================================

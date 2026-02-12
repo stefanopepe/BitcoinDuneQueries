@@ -35,7 +35,7 @@ flows AS (
         asset_symbol,
         amount_usd,
         is_same_tx
-    FROM query_<FLOW_STITCHING_QUERY_ID>
+    FROM query_6690272
 ),
 
 -- Reference the collateral ledger (column-pruned)

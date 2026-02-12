@@ -39,7 +39,7 @@ flows AS (
         borrow_tx_hash,
         borrow_time,
         amount_usd
-    FROM query_<FLOW_STITCHING_QUERY_ID>
+    FROM query_6690272
 ),
 
 -- ============================================================

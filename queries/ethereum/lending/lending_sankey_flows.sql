@@ -37,7 +37,7 @@ flows AS (
         amount_usd,
         time_delta_seconds,
         is_same_tx
-    FROM query_<FLOW_STITCHING_QUERY_ID>
+    FROM query_6690272
 ),
 
 -- ============================================================
