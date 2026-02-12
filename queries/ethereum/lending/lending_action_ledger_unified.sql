@@ -593,7 +593,7 @@ new_data AS (
 ),
 
 kept_old AS (
-    SELECT *
+    SELECT p.*
     FROM prev p
     CROSS JOIN checkpoint c
     WHERE p.block_date < c.cutoff_date
