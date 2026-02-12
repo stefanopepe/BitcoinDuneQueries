@@ -22,7 +22,7 @@
 --   {protocol}:borrow:{asset_symbol}  -> Source of flow
 --   {protocol}:supply:{asset_symbol}  -> Destination of flow
 -- Example:
---   aave_v3:borrow:USDC -> morpho_aave_v2:supply:USDC
+--   aave_v3:borrow:USDC -> morpho_blue:supply:USDC
 -- ============================================================
 
 WITH
@@ -71,8 +71,6 @@ daily_edges AS (
         source_protocol,
         dest_protocol,
         asset_symbol
-),
-
 )
 
 -- ============================================================
