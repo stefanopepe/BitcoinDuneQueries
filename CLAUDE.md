@@ -379,13 +379,172 @@ Prefer Spellbook tables over raw tables when available.
 - Check query execution time and optimize if needed
 - Test with different parameter values
 
-### Optimization Tips
+### Writing Efficient Queries
 
-1. **Filter early**: Apply WHERE clauses as early as possible
-2. **Limit date ranges**: Always include date filters for large tables
-3. **Avoid SELECT ***: Only select columns you need
-4. **Use appropriate aggregations**: Pre-aggregate when possible
-5. **Index usage**: Filter on indexed columns (block_time, block_number)
+> **Reference:** [Dune Docs — Writing Efficient Queries](https://docs.dune.com/query-engine/writing-efficient-queries)
+
+Dune's query engine uses **time-partitioned tables** and **columnar storage**. Understanding this architecture is key to writing queries that execute faster and consume fewer credits. The guidelines below are adapted from Dune's official documentation and should be followed when writing, optimizing, or refactoring any query in this repository.
+
+#### 1. Use Partition Pruning with Time Filters
+
+Dune partitions most tables by `block_date` or `block_time` (check the data explorer to see which fields are partition keys). **Always include time filters** to enable partition pruning and avoid full table scans.
+
+```sql
+-- GOOD: Filters by block_date to enable partition pruning
+SELECT hash, "from", "to", value
+FROM base.transactions
+WHERE block_date >= TIMESTAMP '2025-09-01 00:00:00'
+  AND block_date < TIMESTAMP '2025-10-02 00:00:00'
+  AND "to" = 0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD
+```
+
+```sql
+-- BAD: No time filter — causes a full table scan
+SELECT *
+FROM base.transactions
+WHERE "to" = 0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD
+```
+
+**Important:** Do not wrap timestamp columns in functions (e.g., `YEAR(block_time) = 2024`), as this prevents partition pruning. Use direct comparisons instead.
+
+#### 2. Filter Cross-Chain Tables by `blockchain`
+
+Large cross-chain tables like `tokens.transfers`, `dex.trades`, and `evms.erc20_evt_transfers` are partitioned by **both `blockchain` and time**. Always specify both filters to dramatically reduce data scanned.
+
+```sql
+-- EXCELLENT: Filters by both blockchain and time
+SELECT
+    block_time,
+    token_pair,
+    amount_usd
+FROM dex.trades
+WHERE blockchain = 'ethereum'
+  AND block_time >= TIMESTAMP '2024-10-01'
+  AND block_time < TIMESTAMP '2024-11-01'
+```
+
+#### 3. Select Only Needed Columns
+
+Dune's columnar storage means selecting fewer columns = less data read. **Never use `SELECT *`** on large tables (especially transactions and logs).
+
+```sql
+-- GOOD: Select only what you need
+SELECT hash, "from", "to", value
+FROM ethereum.transactions
+WHERE block_date >= TIMESTAMP '2024-10-01'
+  AND block_date < TIMESTAMP '2024-11-01'
+```
+
+```sql
+-- BAD: SELECT * reads every column
+SELECT *
+FROM ethereum.transactions
+WHERE block_date >= TIMESTAMP '2024-10-01'
+  AND block_date < TIMESTAMP '2024-11-01'
+```
+
+#### 4. Use Efficient Joins
+
+Put time filters in the `ON` clause and join on indexed columns. This lets the engine prune partitions on both sides of the join.
+
+```sql
+-- GOOD: Time filters in the ON clause for both tables
+SELECT
+    t.hash,
+    t."from",
+    l.topic1
+FROM ethereum.transactions t
+JOIN ethereum.logs l
+    ON t.hash = l.tx_hash
+    AND t.block_date = l.block_date
+    AND l.block_date >= TIMESTAMP '2024-10-01'
+    AND l.block_date < TIMESTAMP '2024-11-01'
+WHERE t.block_date >= TIMESTAMP '2024-10-01'
+  AND t.block_date < TIMESTAMP '2024-11-01'
+```
+
+**Additional join tips:**
+- Prefer `JOIN` over nested subqueries when possible
+- Prefer `NOT EXISTS` or `LEFT JOIN ... IS NULL` over `NOT IN` (much less costly)
+- Filter tables before joining, not after
+
+#### 5. Use `LIMIT` with `ORDER BY`
+
+When ordering large result sets, always add a `LIMIT` clause to avoid unnecessary sorting of massive datasets.
+
+```sql
+-- GOOD: ORDER BY with LIMIT
+SELECT hash, gas_price
+FROM ethereum.transactions
+WHERE block_date >= TIMESTAMP '2024-10-01'
+ORDER BY gas_price DESC
+LIMIT 100
+```
+
+```sql
+-- BAD: ORDER BY without LIMIT on a large table
+SELECT hash, gas_price
+FROM ethereum.transactions
+WHERE block_date >= TIMESTAMP '2024-10-01'
+ORDER BY gas_price DESC
+```
+
+#### 6. Use CTEs for Readability and Performance
+
+Break complex queries into Common Table Expressions (CTEs). They improve readability, are easier to debug, and can perform better than deeply nested subqueries. Keep queries under ~100 lines when possible to avoid slowing down the query optimizer.
+
+```sql
+-- GOOD: CTE with proper filters, then aggregate
+WITH daily_volumes AS (
+    SELECT
+        date_trunc('day', block_time) AS day,
+        SUM(amount_usd) AS volume
+    FROM dex.trades
+    WHERE blockchain = 'ethereum'
+      AND block_date >= TIMESTAMP '2024-10-01'
+      AND block_date < TIMESTAMP '2024-11-01'
+    GROUP BY 1
+)
+SELECT
+    day,
+    volume,
+    AVG(volume) OVER (ORDER BY day ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS rolling_7d_avg
+FROM daily_volumes
+ORDER BY day
+```
+
+#### 7. Leverage Curated Tables and Materialized Views
+
+- **Curated (Spellbook) tables** like `dex.trades`, `nft.trades`, `tokens.transfers` are pre-computed and optimized — prefer them over raw logs and traces.
+- **Materialized views** store query results as a reusable table. Use them when a query takes a long time and its results are needed by other queries, avoiding repeated expensive computation.
+
+#### 8. Monitor and Analyze Query Plans
+
+Use `EXPLAIN ANALYZE` to debug performance issues:
+
+```sql
+EXPLAIN ANALYZE
+SELECT ...
+```
+
+Check for:
+- Full table scans (missing partition filters)
+- Excessive data scanned vs. data returned
+- Query execution time in the Dune interface
+
+#### Quick Reference: Do's and Don'ts
+
+| **DO** | **DON'T** |
+|---|---|
+| Filter by `block_date` or `block_time` | Query without time filters (full table scan) |
+| Add `blockchain` filter on cross-chain tables | Use `SELECT *` on large tables |
+| Select only needed columns | Order large results without `LIMIT` |
+| Put time filters in JOIN `ON` clauses | Wrap timestamp columns in functions |
+| Use CTEs to break down complex logic | Use deeply nested subqueries |
+| Use curated/decoded Spellbook tables | Parse raw logs when a Spellbook table exists |
+| Use `NOT EXISTS` / `LEFT JOIN ... IS NULL` | Use `NOT IN` (much more costly) |
+| Add `block_number` filter alongside hash lookups | Filter only by `tx_hash` without time/block filter |
+| Use `EXPLAIN ANALYZE` to find bottlenecks | Guess at performance problems |
 
 ## AI Assistant Guidelines
 
@@ -496,6 +655,7 @@ Match your commit messages to branch types:
 **Local Documentation (Reliable Offline References):**
 - [`docs/dune_database_schemas.md`](./docs/dune_database_schemas.md) - Dune table schemas
 - [`docs/queries_schemas.md`](./docs/queries_schemas.md) - Repository query documentation
+- [Writing Efficient Queries](#writing-efficient-queries) - Inline guide in this file (adapted from [Dune Docs](https://docs.dune.com/query-engine/writing-efficient-queries))
 
 **SQL Reference:**
 - [Trino SQL Documentation](https://trino.io/docs/current/)
