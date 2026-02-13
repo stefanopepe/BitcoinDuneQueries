@@ -170,13 +170,13 @@
       "name": "lending_flow_stitching",
       "file": "queries/ethereum/lending/lending_flow_stitching.sql",
       "dune_query_id": 6690272,
-      "type": "nested",
+      "type": "base",
       "architecture": "v2",
       "smoke_test": "tests/lending_flow_stitching_smoke.sql",
       "dependencies": [
         "lending_action_ledger_unified"
       ],
-      "description": "Cross-protocol flow detection (borrow->transfer->supply)"
+      "description": "Cross-protocol flow detection (borrow->transfer->supply). Materialized with incremental processing to break inline chain for downstream queries."
     },
     {
       "name": "lending_loop_detection",
@@ -188,7 +188,7 @@
       "dependencies": [
         "lending_flow_stitching"
       ],
-      "description": "Multi-hop lending loop detection with recursion depth"
+      "description": "Multi-hop lending loop detection using window functions (islands-and-gaps). Supports arbitrary hop depth with uniform 1-hour temporal constraint."
     },
     {
       "name": "lending_loop_metrics_daily",

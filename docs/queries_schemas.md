@@ -790,6 +790,202 @@ Final score clamped to [0, 100].
 
 ---
 
+## Ethereum / Lending Query Architecture
+
+### Architecture Diagram
+
+```
+Tier 1 (Base, materialized):
+  lending_action_ledger_unified (ID: 6687961)
+    Unified stablecoin action ledger across Aave V3, Morpho Blue,
+    Compound V3, Compound V2. Incremental with 1-day lookback.
+         |
+         v
+Tier 2 (Base, materialized):
+  lending_flow_stitching (ID: 6690272)
+    Cross-protocol flow detection (borrow->supply).
+    Materialized to break inline chain for downstream queries.
+    Incremental with 1-day lookback.
+         |
+         +-----> lending_sankey_flows (nested)
+         +-----> lending_loop_collateral_profile (nested, + collateral_ledger)
+         |
+         v
+Tier 3 (Nested):
+  lending_loop_detection (ID: TBD)
+    Multi-hop loop detection via window functions (islands-and-gaps).
+    Uniform 1-hour temporal constraint, arbitrary hop depth.
+         |
+         v
+  lending_loop_metrics_daily (nested)
+    Daily aggregated loop metrics + top protocol pair.
+```
+
+### lending_action_ledger_unified.sql
+
+**Path:** `queries/ethereum/lending/lending_action_ledger_unified.sql`
+**Dune Query ID:** 6687961
+**Type:** Base Query (materialized with incremental processing)
+
+**Description:**
+Unified action ledger combining Aave V3, Morpho Blue, Compound V3, and Compound V2 lending events into a single normalized schema. Scoped to stablecoins (USDC, USDT, DAI, FRAX). Uses `previous.query.result()` for incremental processing with 1-day lookback.
+
+**Author:** stefanopepe
+**Created:** 2026-02-05
+
+#### Output Schema
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `block_time` | TIMESTAMP | Event timestamp |
+| `block_date` | DATE | Event date |
+| `block_number` | BIGINT | Block number |
+| `tx_hash` | VARBINARY | Transaction hash |
+| `evt_index` | BIGINT | Event log index |
+| `protocol` | VARCHAR | Protocol identifier (aave_v3, morpho_blue, compound_v3, compound_v2) |
+| `action_type` | VARCHAR | Action: supply/borrow/repay/withdraw/liquidation |
+| `user_address` | VARBINARY | Entity performing action |
+| `on_behalf_of` | VARBINARY | Beneficiary address |
+| `entity_address` | VARBINARY | Canonical entity (COALESCE of on_behalf_of, user) |
+| `asset_address` | VARBINARY | Underlying asset contract |
+| `asset_symbol` | VARCHAR | Token symbol |
+| `amount_raw` | UINT256 | Raw amount in asset decimals |
+| `amount` | DOUBLE | Decimal-adjusted amount |
+| `amount_usd` | DOUBLE | USD value at event time |
+
+---
+
+### lending_flow_stitching.sql
+
+**Path:** `queries/ethereum/lending/lending_flow_stitching.sql`
+**Dune Query ID:** 6690272
+**Type:** Base Query (materialized with incremental processing)
+
+**Description:**
+Detects cross-protocol capital flows by stitching borrow events on Protocol P1 with supply events on Protocol P2. Supports same-transaction (atomic) flows and cross-transaction flows within a 2-minute window. Materialized to break the inline query chain for downstream consumers.
+
+**Author:** stefanopepe
+**Created:** 2026-02-05
+
+#### Output Schema
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `flow_id` | VARCHAR | Unique flow identifier |
+| `block_date` | DATE | Flow date |
+| `entity_address` | VARBINARY | Entity executing the flow |
+| `source_protocol` | VARCHAR | Protocol where borrow occurred |
+| `dest_protocol` | VARCHAR | Protocol where supply occurred |
+| `asset_address` | VARBINARY | Asset being moved |
+| `asset_symbol` | VARCHAR | Token symbol |
+| `borrow_tx_hash` | VARBINARY | Borrow transaction hash |
+| `supply_tx_hash` | VARBINARY | Supply transaction hash |
+| `borrow_time` | TIMESTAMP | Borrow timestamp |
+| `supply_time` | TIMESTAMP | Supply timestamp |
+| `time_delta_seconds` | INTEGER | Time between borrow and supply |
+| `is_same_tx` | BOOLEAN | Whether flow occurred in same transaction |
+| `amount` | DOUBLE | Flow amount (from borrow) |
+| `amount_usd` | DOUBLE | USD value of flow |
+| `flow_speed_category` | VARCHAR | atomic/near_instant/fast/delayed |
+
+---
+
+### lending_loop_detection.sql
+
+**Path:** `queries/ethereum/lending/lending_loop_detection.sql`
+**Dune Query ID:** TBD
+**Type:** Nested Query
+
+**Description:**
+Detects multi-hop lending loops using window functions (islands-and-gaps pattern). A loop is a chain of flows where the destination protocol of one flow becomes the source of the next, within a 1-hour temporal window. Supports arbitrary hop depth.
+
+**Author:** stefanopepe
+**Created:** 2026-02-05
+
+#### Detection Algorithm
+
+1. **LAG()** previous flow's `dest_protocol` and `borrow_time` per entity
+2. **Tag** each flow as continuation (source = prev dest AND within 1 hour) or chain start
+3. **Running SUM** of chain starts assigns chain IDs (islands-and-gaps)
+4. **GROUP BY** entity + chain_id to compute per-loop metrics
+
+#### Output Schema
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `loop_id` | VARCHAR | Unique loop identifier (root flow_id) |
+| `entity_address` | VARBINARY | Entity executing the loop |
+| `start_date` | DATE | Loop initiation date |
+| `end_date` | DATE | Always NULL (repay tracking not implemented) |
+| `protocols_involved` | ARRAY(VARCHAR) | Array of protocols in loop path |
+| `hop_count` | BIGINT | Number of protocol hops |
+| `recursion_depth` | BIGINT | Same as hop_count |
+| `root_tx_hash` | VARBINARY | First transaction in loop |
+| `gross_borrowed_usd` | DOUBLE | Total USD borrowed across all hops |
+| `loop_status` | VARCHAR | deep_loop (>=3) / standard_loop (2) / single_hop (1) |
+
+---
+
+### lending_loop_metrics_daily.sql
+
+**Path:** `queries/ethereum/lending/lending_loop_metrics_daily.sql`
+**Dune Query ID:** TBD
+**Type:** Nested Query
+
+**Description:**
+Daily aggregated metrics for cross-protocol lending loops. Combines loop detection results with flow stitching data to produce loop counts, credit creation volumes, and top protocol pair analysis.
+
+#### Output Schema
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `day` | DATE | Date |
+| `loops_started` | BIGINT | New loops initiated |
+| `unique_loopers` | BIGINT | Distinct entities with loops |
+| `gross_credit_created_usd` | DOUBLE | Total borrowed across all loops |
+| `avg_recursion_depth` | DOUBLE | Average hop depth |
+| `max_recursion_depth` | BIGINT | Deepest loop observed |
+| `single_hop_loops` | BIGINT | Count of 1-hop loops |
+| `double_hop_loops` | BIGINT | Count of 2-hop loops |
+| `deep_loops` | BIGINT | Count of 3+ hop loops |
+| `top_protocol_pair` | VARCHAR | Most common source->dest pair |
+| `top_pair_volume_usd` | DOUBLE | Volume for top pair |
+
+---
+
+### lending_sankey_flows.sql
+
+**Path:** `queries/ethereum/lending/lending_sankey_flows.sql`
+**Dune Query ID:** TBD
+**Type:** Nested Query
+
+**Description:**
+Edge list dataset for Sankey diagram visualization. Aggregates cross-protocol flows into daily edges with source/target nodes formatted as `{protocol}:{action}:{asset}`.
+
+---
+
+### lending_loop_collateral_profile.sql
+
+**Path:** `queries/ethereum/lending/lending_loop_collateral_profile.sql`
+**Dune Query ID:** TBD
+**Type:** Nested Query
+
+**Description:**
+Joins cross-protocol flows with collateral positions to segment loop activity by backing asset category (BTC vs ETH vs LST vs mixed).
+
+---
+
+### lending_entity_loop_storyboard.sql
+
+**Path:** `queries/ethereum/lending/lending_entity_loop_storyboard.sql`
+**Dune Query ID:** TBD
+**Type:** Nested Query
+
+**Description:**
+Time-ordered per-entity loop traces with running totals. Reads directly from the unified action ledger.
+
+---
+
 ## Adding New Queries
 
 When adding a new query to this repository:

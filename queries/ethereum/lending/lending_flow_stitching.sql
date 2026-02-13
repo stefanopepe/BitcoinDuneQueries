@@ -1,14 +1,16 @@
 -- ============================================================
--- Query: Lending Flow Stitching (Nested Query)
+-- Query: Lending Flow Stitching (Base Query - Materialized)
 -- Description: Detects cross-protocol capital flows by stitching:
 --              1. Borrow events on Protocol P1
 --              2. ERC-20 transfers of borrowed asset
 --              3. Supply events on Protocol P2
 --              Uses a 10-block (~2 minute) time window for cross-tx flows.
+--              Materialized with incremental processing to break the
+--              inline chain for downstream queries (loop_detection, etc.).
 -- Author: stefanopepe
 -- Created: 2026-02-05
--- Updated: 2026-02-05
--- Architecture: V2 Nested Query (joins base with transfers.erc20)
+-- Updated: 2026-02-13
+-- Architecture: V2 Base Query (materialized with incremental processing)
 -- Dependencies: lending_action_ledger_unified
 -- ============================================================
 -- Output Columns:
@@ -27,9 +29,42 @@
 --   is_same_tx           - Whether flow occurred in same transaction
 --   amount               - Flow amount (from borrow)
 --   amount_usd           - USD value of flow
+--   flow_speed_category  - atomic/near_instant/fast/delayed
 -- ============================================================
 
 WITH
+-- 1) Previous results (empty on first run)
+prev AS (
+    SELECT *
+    FROM TABLE(previous.query.result(
+        schema => DESCRIPTOR(
+            flow_id VARCHAR,
+            block_date DATE,
+            entity_address VARBINARY,
+            source_protocol VARCHAR,
+            dest_protocol VARCHAR,
+            asset_address VARBINARY,
+            asset_symbol VARCHAR,
+            borrow_tx_hash VARBINARY,
+            supply_tx_hash VARBINARY,
+            borrow_time TIMESTAMP,
+            supply_time TIMESTAMP,
+            time_delta_seconds INTEGER,
+            is_same_tx BOOLEAN,
+            amount DOUBLE,
+            amount_usd DOUBLE,
+            flow_speed_category VARCHAR
+        )
+    ))
+),
+
+-- 2) Checkpoint: recompute from 1-day lookback
+checkpoint AS (
+    SELECT
+        COALESCE(MAX(block_date), DATE '2024-01-01') - INTERVAL '1' DAY AS cutoff_date
+    FROM prev
+),
+
 -- Reference the unified action ledger base query (column-pruned)
 base_actions AS (
     SELECT
@@ -46,6 +81,9 @@ base_actions AS (
         amount,
         amount_usd
     FROM query_6687961
+    CROSS JOIN checkpoint c
+    WHERE block_date >= c.cutoff_date
+      AND block_date < CURRENT_DATE
 ),
 
 -- Extract borrow events (source of cross-protocol flows)
@@ -181,29 +219,46 @@ all_flows AS (
     SELECT * FROM same_tx_flows
     UNION ALL
     SELECT * FROM cross_tx_flows
+),
+
+-- ============================================================
+-- INCREMENTAL MERGE
+-- ============================================================
+
+new_data AS (
+    SELECT
+        flow_id,
+        block_date,
+        entity_address,
+        source_protocol,
+        dest_protocol,
+        asset_address,
+        asset_symbol,
+        borrow_tx_hash,
+        supply_tx_hash,
+        borrow_time,
+        supply_time,
+        time_delta_seconds,
+        is_same_tx,
+        amount,
+        amount_usd,
+        -- Flow classification
+        CASE
+            WHEN is_same_tx THEN 'atomic'
+            WHEN time_delta_seconds <= 15 THEN 'near_instant'
+            WHEN time_delta_seconds <= 60 THEN 'fast'
+            ELSE 'delayed'
+        END AS flow_speed_category
+    FROM all_flows
+),
+
+kept_old AS (
+    SELECT p.*
+    FROM prev p
+    CROSS JOIN checkpoint c
+    WHERE p.block_date < c.cutoff_date
 )
 
-SELECT
-    flow_id,
-    block_date,
-    entity_address,
-    source_protocol,
-    dest_protocol,
-    asset_address,
-    asset_symbol,
-    borrow_tx_hash,
-    supply_tx_hash,
-    borrow_time,
-    supply_time,
-    time_delta_seconds,
-    is_same_tx,
-    amount,
-    amount_usd,
-    -- Flow classification
-    CASE
-        WHEN is_same_tx THEN 'atomic'
-        WHEN time_delta_seconds <= 15 THEN 'near_instant'
-        WHEN time_delta_seconds <= 60 THEN 'fast'
-        ELSE 'delayed'
-    END AS flow_speed_category
-FROM all_flows
+SELECT * FROM kept_old
+UNION ALL
+SELECT * FROM new_data
