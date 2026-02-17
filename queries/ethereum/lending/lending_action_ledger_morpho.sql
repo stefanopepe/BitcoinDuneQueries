@@ -6,7 +6,7 @@
 --              Uses incremental processing with 1-day lookback.
 -- Author: stefanopepe
 -- Created: 2026-02-05
--- Updated: 2026-02-05
+-- Updated: 2026-02-17
 -- Architecture: V2 Base Query - computes ALL actions once
 -- Dependencies: None (base query)
 -- ============================================================
@@ -77,8 +77,8 @@ supply_events AS (
         CAST(NULL AS VARBINARY) AS asset_address,  -- Will be enriched later
         s._poolToken AS pool_token,
         s._amount AS amount_raw,
-        s._balanceInP2P AS balance_p2p,
-        s._balanceOnPool AS balance_pool
+        CAST(s._balanceInP2P AS VARCHAR) AS balance_p2p,
+        CAST(s._balanceOnPool AS VARCHAR) AS balance_pool
     FROM morpho_aave_v2_ethereum.morpho_evt_supplied s
     CROSS JOIN checkpoint c
     WHERE CAST(date_trunc('day', s.evt_block_time) AS DATE) >= c.cutoff_date
@@ -100,8 +100,8 @@ borrow_events AS (
         CAST(NULL AS VARBINARY) AS asset_address,
         b._poolToken AS pool_token,
         b._amount AS amount_raw,
-        b._balanceInP2P AS balance_p2p,
-        b._balanceOnPool AS balance_pool
+        CAST(b._balanceInP2P AS VARCHAR) AS balance_p2p,
+        CAST(b._balanceOnPool AS VARCHAR) AS balance_pool
     FROM morpho_aave_v2_ethereum.morpho_evt_borrowed b
     CROSS JOIN checkpoint c
     WHERE CAST(date_trunc('day', b.evt_block_time) AS DATE) >= c.cutoff_date
@@ -123,8 +123,8 @@ repay_events AS (
         CAST(NULL AS VARBINARY) AS asset_address,
         r._poolToken AS pool_token,
         r._amount AS amount_raw,
-        r._balanceInP2P AS balance_p2p,
-        r._balanceOnPool AS balance_pool
+        CAST(r._balanceInP2P AS VARCHAR) AS balance_p2p,
+        CAST(r._balanceOnPool AS VARCHAR) AS balance_pool
     FROM morpho_aave_v2_ethereum.morpho_evt_repaid r
     CROSS JOIN checkpoint c
     WHERE CAST(date_trunc('day', r.evt_block_time) AS DATE) >= c.cutoff_date
@@ -146,8 +146,8 @@ withdraw_events AS (
         CAST(NULL AS VARBINARY) AS asset_address,
         w._poolToken AS pool_token,
         w._amount AS amount_raw,
-        w._balanceInP2P AS balance_p2p,
-        w._balanceOnPool AS balance_pool
+        CAST(w._balanceInP2P AS VARCHAR) AS balance_p2p,
+        CAST(w._balanceOnPool AS VARCHAR) AS balance_pool
     FROM morpho_aave_v2_ethereum.morpho_evt_withdrawn w
     CROSS JOIN checkpoint c
     WHERE CAST(date_trunc('day', w.evt_block_time) AS DATE) >= c.cutoff_date
