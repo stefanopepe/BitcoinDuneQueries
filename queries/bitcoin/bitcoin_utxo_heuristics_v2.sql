@@ -8,7 +8,7 @@
 -- Created: 2026-02-02
 -- Updated: 2026-02-02
 -- Architecture: 1-level nested query on bitcoin_tx_features_daily
--- Base Query: query_<BASE_QUERY_ID> (bitcoin_tx_features_daily)
+-- Base Query: query_6638509 (bitcoin_tx_features_daily)
 -- ============================================================
 -- Intent Classifications (computed in base query):
 --   consolidation        - >=10 inputs, <=2 outputs
@@ -41,6 +41,6 @@ SELECT
     AVG(output_count) AS avg_outputs,
     APPROX_PERCENTILE(input_count, 0.5) AS median_inputs,
     APPROX_PERCENTILE(output_count, 0.5) AS median_outputs
-FROM query_<BASE_QUERY_ID>
+FROM query_6638509
 GROUP BY day, intent
 ORDER BY day, intent

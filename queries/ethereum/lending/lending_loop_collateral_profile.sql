@@ -50,7 +50,7 @@ collateral AS (
         collateral_category,
         amount,
         amount_usd
-    FROM query_<COLLATERAL_LEDGER_QUERY_ID>
+    FROM query_6707791
 ),
 
 -- ============================================================

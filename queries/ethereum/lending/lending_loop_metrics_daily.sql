@@ -28,7 +28,7 @@ loops AS (
         start_date,
         recursion_depth,
         gross_borrowed_usd
-    FROM query_<LOOP_DETECTION_QUERY_ID>
+    FROM query_{{loop_detection_query_id}}
 ),
 
 -- Reference the flow stitching query (column-pruned)

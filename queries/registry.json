@@ -66,7 +66,7 @@
       "dune_query_id": null,
       "type": "nested",
       "architecture": "v2",
-      "smoke_test": null,
+      "smoke_test": "tests/bitcoin_utxo_heuristics_v2_smoke.sql",
       "dependencies": [
         "bitcoin_tx_features_daily"
       ],
@@ -160,7 +160,7 @@
       "dune_query_id": null,
       "type": "nested",
       "architecture": "v2",
-      "smoke_test": null,
+      "smoke_test": "tests/lending_entity_balance_sheet_smoke.sql",
       "dependencies": [
         "lending_action_ledger_unified"
       ],
@@ -196,7 +196,7 @@
       "dune_query_id": null,
       "type": "nested",
       "architecture": "v2",
-      "smoke_test": null,
+      "smoke_test": "tests/lending_loop_metrics_daily_smoke.sql",
       "dependencies": [
         "lending_loop_detection",
         "lending_flow_stitching"
@@ -209,7 +209,7 @@
       "dune_query_id": null,
       "type": "nested",
       "architecture": "v2",
-      "smoke_test": null,
+      "smoke_test": "tests/lending_sankey_flows_smoke.sql",
       "dependencies": [
         "lending_flow_stitching"
       ],
@@ -221,7 +221,7 @@
       "dune_query_id": null,
       "type": "nested",
       "architecture": "v2",
-      "smoke_test": null,
+      "smoke_test": "tests/lending_entity_loop_storyboard_smoke.sql",
       "dependencies": [
         "lending_action_ledger_unified"
       ],
@@ -243,7 +243,7 @@
       "dune_query_id": null,
       "type": "nested",
       "architecture": "v2",
-      "smoke_test": null,
+      "smoke_test": "tests/lending_loop_collateral_profile_smoke.sql",
       "dependencies": [
         "lending_flow_stitching",
         "lending_collateral_ledger"
