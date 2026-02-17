@@ -230,7 +230,7 @@
     {
       "name": "lending_collateral_ledger",
       "file": "queries/ethereum/lending/lending_collateral_ledger.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6707791,
       "type": "base",
       "architecture": "v2",
       "smoke_test": "tests/lending_collateral_ledger_smoke.sql",
