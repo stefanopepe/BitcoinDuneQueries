@@ -10,12 +10,13 @@
 -- ============================================================
 
 WITH stablecoins AS (
-    SELECT address FROM (
+    SELECT address, decimals FROM (
         VALUES
-            (0x833589fcd6edb6e08f4c7c32d4f71b54bda02913),  -- USDC
-            (0xfde4c96c8593536e31f229ea8f37b2ada2699bb2),  -- USDT
-            (0x50c5725949a6f0c72e6c4a641f24049a917db0cb)   -- DAI
-    ) AS t(address)
+            (0x833589fcd6edb6e08f4c7c32d4f71b54bda02913, 6),   -- USDC
+            (0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca, 6),   -- USDbC
+            (0xfde4c96c8593536e31f229ea8f37b2ada2699bb2, 6),   -- USDT
+            (0x50c5725949a6f0c72e6c4a641f24049a917db0cb, 18)   -- DAI
+    ) AS t(address, decimals)
 ),
 
 -- Collect all Aave V3 actions (simplified, stablecoins only)
@@ -26,10 +27,10 @@ aave_actions AS (
         'aave_v3' AS protocol,
         reserve AS asset_address,
         'supply' AS action_type,
-        CAST(amount AS DOUBLE) / 1e6 AS amount  -- USDC/USDT = 6 decimals
+        CAST(amount AS DOUBLE) / POWER(10, sc.decimals) AS amount
     FROM aave_v3_base.pool_evt_supply
+    JOIN stablecoins sc ON sc.address = reserve
     WHERE evt_block_time >= CURRENT_DATE - INTERVAL '14' DAY
-      AND reserve IN (SELECT address FROM stablecoins)
     UNION ALL
     SELECT
         CAST(date_trunc('day', evt_block_time) AS DATE),
@@ -37,10 +38,10 @@ aave_actions AS (
         'aave_v3',
         reserve,
         'borrow',
-        CAST(amount AS DOUBLE) / 1e6
+        CAST(amount AS DOUBLE) / POWER(10, sc.decimals)
     FROM aave_v3_base.pool_evt_borrow
+    JOIN stablecoins sc ON sc.address = reserve
     WHERE evt_block_time >= CURRENT_DATE - INTERVAL '14' DAY
-      AND reserve IN (SELECT address FROM stablecoins)
     UNION ALL
     SELECT
         CAST(date_trunc('day', evt_block_time) AS DATE),
@@ -48,10 +49,10 @@ aave_actions AS (
         'aave_v3',
         reserve,
         'repay',
-        CAST(amount AS DOUBLE) / 1e6
+        CAST(amount AS DOUBLE) / POWER(10, sc.decimals)
     FROM aave_v3_base.pool_evt_repay
+    JOIN stablecoins sc ON sc.address = reserve
     WHERE evt_block_time >= CURRENT_DATE - INTERVAL '14' DAY
-      AND reserve IN (SELECT address FROM stablecoins)
     UNION ALL
     SELECT
         CAST(date_trunc('day', evt_block_time) AS DATE),
@@ -59,10 +60,10 @@ aave_actions AS (
         'aave_v3',
         reserve,
         'withdraw',
-        CAST(amount AS DOUBLE) / 1e6
+        CAST(amount AS DOUBLE) / POWER(10, sc.decimals)
     FROM aave_v3_base.pool_evt_withdraw
+    JOIN stablecoins sc ON sc.address = reserve
     WHERE evt_block_time >= CURRENT_DATE - INTERVAL '14' DAY
-      AND reserve IN (SELECT address FROM stablecoins)
 ),
 
 -- Daily position changes
@@ -112,3 +113,4 @@ SELECT
     SUM(CASE WHEN cumulative_collateral > 0 AND cumulative_debt > 0 THEN 1 ELSE 0 END) AS entities_with_both,
     SUM(CASE WHEN cumulative_collateral - cumulative_debt < 0 THEN 1 ELSE 0 END) AS underwater_snapshots
 FROM running
+HAVING COUNT(*) > 0

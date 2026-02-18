@@ -41,9 +41,9 @@ aave_v3_collateral AS (
 morpho_blue_collateral_markets AS (
     SELECT
         id AS market_id,
-        CAST(json_extract_scalar(marketParams, '$.collateralToken') AS VARBINARY) AS collateral_token
+        from_hex(substr(json_extract_scalar(marketParams, '$.collateralToken'), 3)) AS collateral_token
     FROM morpho_blue_base.morphoblue_evt_createmarket
-    WHERE CAST(json_extract_scalar(marketParams, '$.collateralToken') AS VARBINARY) IN (
+    WHERE from_hex(substr(json_extract_scalar(marketParams, '$.collateralToken'), 3)) IN (
         SELECT address FROM collateral_assets
     )
 ),
@@ -76,11 +76,3 @@ SELECT
     category,
     event_count
 FROM all_results
-UNION ALL
-SELECT
-    'collateral_distribution',
-    'none',
-    'none',
-    'unknown',
-    0
-WHERE NOT EXISTS (SELECT 1 FROM all_results)
