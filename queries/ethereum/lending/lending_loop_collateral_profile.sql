@@ -28,6 +28,7 @@ WITH
 -- Reference the flow stitching query (column-pruned)
 flows AS (
     SELECT
+        flow_id,
         block_date,
         entity_address,
         source_protocol,
@@ -148,50 +149,58 @@ entity_daily_collateral AS (
 
 flows_with_collateral AS (
     SELECT
-        f.block_date,
-        f.entity_address,
-        f.source_protocol,
-        f.dest_protocol,
-        f.asset_symbol AS stablecoin_symbol,
-        f.amount_usd AS flow_amount_usd,
-        f.is_same_tx,
-        -- Collateral info (may be NULL if entity has no tracked collateral)
-        ec.total_collateral_usd AS collateral_amount_usd,
-        ec.primary_collateral_symbol AS collateral_symbol,
-        CASE
-            WHEN ec.entity_address IS NULL THEN 'unknown'
-            WHEN ec.distinct_categories > 1 THEN 'mixed'
-            ELSE ec.primary_collateral_category
-        END AS collateral_category,
-        ec.has_btc_collateral AS is_btc_backed,
-        ec.btc_collateral_usd,
-        ec.eth_collateral_usd,
-        ec.eth_lst_collateral_usd,
-        -- Implied leverage: flow volume / collateral
-        CASE
-            WHEN ec.total_collateral_usd > 0 THEN
-                ROUND(f.amount_usd / ec.total_collateral_usd, 4)
-            ELSE NULL
-        END AS implied_leverage
-    FROM flows f
-    LEFT JOIN LATERAL (
+        block_date,
+        entity_address,
+        source_protocol,
+        dest_protocol,
+        stablecoin_symbol,
+        flow_amount_usd,
+        is_same_tx,
+        collateral_amount_usd,
+        collateral_symbol,
+        collateral_category,
+        is_btc_backed,
+        btc_collateral_usd,
+        eth_collateral_usd,
+        eth_lst_collateral_usd,
+        implied_leverage
+    FROM (
         SELECT
-            entity_address,
-            block_date,
-            total_collateral_usd,
-            primary_collateral_symbol,
-            primary_collateral_category,
-            has_btc_collateral,
-            btc_collateral_usd,
-            eth_collateral_usd,
-            eth_lst_collateral_usd,
-            distinct_categories
-        FROM entity_daily_collateral ec
-        WHERE ec.entity_address = f.entity_address
-          AND ec.block_date <= f.block_date
-        ORDER BY ec.block_date DESC
-        LIMIT 1
-    ) ec ON TRUE
+            f.block_date,
+            f.entity_address,
+            f.source_protocol,
+            f.dest_protocol,
+            f.asset_symbol AS stablecoin_symbol,
+            f.amount_usd AS flow_amount_usd,
+            f.is_same_tx,
+            -- Collateral info (may be NULL if entity has no tracked collateral)
+            ec.total_collateral_usd AS collateral_amount_usd,
+            ec.primary_collateral_symbol AS collateral_symbol,
+            CASE
+                WHEN ec.entity_address IS NULL THEN 'unknown'
+                WHEN ec.distinct_categories > 1 THEN 'mixed'
+                ELSE ec.primary_collateral_category
+            END AS collateral_category,
+            ec.has_btc_collateral AS is_btc_backed,
+            ec.btc_collateral_usd,
+            ec.eth_collateral_usd,
+            ec.eth_lst_collateral_usd,
+            -- Implied leverage: flow volume / collateral
+            CASE
+                WHEN ec.total_collateral_usd > 0 THEN
+                    ROUND(f.amount_usd / ec.total_collateral_usd, 4)
+                ELSE NULL
+            END AS implied_leverage,
+            ROW_NUMBER() OVER (
+                PARTITION BY f.flow_id
+                ORDER BY ec.block_date DESC
+            ) AS rn
+        FROM flows f
+        LEFT JOIN entity_daily_collateral ec
+            ON ec.entity_address = f.entity_address
+            AND ec.block_date <= f.block_date
+    ) ranked
+    WHERE rn = 1
 )
 
 -- ============================================================
