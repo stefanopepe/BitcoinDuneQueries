@@ -19,7 +19,7 @@
 -- ============================================================
 -- Asset Scope: Stablecoins only
 --   - USDC   0x833589fcd6edb6e08f4c7c32d4f71b54bda02913
---   - USDbC  0xd9aaec86b65d86f6a7b5a5b0c42ffa531710b6ca
+--   - USDbC  0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca
 --   - USDT   0xfde4c96c8593536e31f229ea8f37b2ada2699bb2
 --   - DAI    0x50c5725949a6f0c72e6c4a641f24049a917db0cb
 -- ============================================================
@@ -83,7 +83,7 @@ stablecoin_metadata AS (
     FROM (
         VALUES
             (0x833589fcd6edb6e08f4c7c32d4f71b54bda02913, 'USDC',   6),
-            (0xd9aaec86b65d86f6a7b5a5b0c42ffa531710b6ca, 'USDbC',  6),
+            (0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca, 'USDbC',  6),
             (0xfde4c96c8593536e31f229ea8f37b2ada2699bb2, 'USDT',   6),
             (0x50c5725949a6f0c72e6c4a641f24049a917db0cb, 'DAI',   18)
     ) AS t(address, symbol, decimals)
@@ -114,9 +114,9 @@ wrapper_to_underlying AS (
 morpho_blue_stablecoin_markets AS (
     SELECT
         id AS market_id,
-        CAST(json_extract_scalar(marketParams, '$.loanToken') AS VARBINARY) AS loan_token
+        from_hex(substr(json_extract_scalar(marketParams, '$.loanToken'), 3)) AS loan_token
     FROM morpho_blue_base.morphoblue_evt_createmarket
-    WHERE CAST(json_extract_scalar(marketParams, '$.loanToken') AS VARBINARY) IN (
+    WHERE from_hex(substr(json_extract_scalar(marketParams, '$.loanToken'), 3)) IN (
         SELECT address FROM stablecoins
     )
 ),
