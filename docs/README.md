@@ -43,6 +43,12 @@ Query metadata is stored in chain-specific registry files:
 - `queries/registry.ethereum.json`
 - `queries/registry.base.json`
 
+### Time-Scoped Note: Base Lending Loops
+
+As of **2026-02-25 16:31:27 UTC** (**2026-02-25 17:31:27 CET +0100**), Base lending loop queries in this repository may return empty results for recent windows. This is an observed market-state outcome (very low recent Aave stablecoin activity and near-zero Aave/Morpho overlap), not necessarily a query defect.
+
+This interpretation is time-dependent and should be revalidated on fresh data before reuse in future analysis or dashboards.
+
 ### Query File Naming
 
 - Use lowercase with underscores: `token_transfer_analysis.sql`
