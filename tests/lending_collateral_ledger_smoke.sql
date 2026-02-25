@@ -44,9 +44,9 @@ aave_v3_collateral AS (
 morpho_blue_collateral_markets AS (
     SELECT
         id AS market_id,
-        CAST(json_extract_scalar(marketParams, '$.collateralToken') AS VARBINARY) AS collateral_token
+        from_hex(substr(json_extract_scalar(marketParams, '$.collateralToken'), 3)) AS collateral_token
     FROM morpho_blue_ethereum.morphoblue_evt_createmarket
-    WHERE CAST(json_extract_scalar(marketParams, '$.collateralToken') AS VARBINARY) IN (
+    WHERE from_hex(substr(json_extract_scalar(marketParams, '$.collateralToken'), 3)) IN (
         SELECT address FROM collateral_assets
     )
 ),

@@ -34,7 +34,7 @@ collateral_assets AS (
 morpho_blue_stablecoin_markets AS (
     SELECT id AS market_id
     FROM morpho_blue_ethereum.morphoblue_evt_createmarket
-    WHERE CAST(json_extract_scalar(marketParams, '$.loanToken') AS VARBINARY) IN (
+    WHERE from_hex(substr(json_extract_scalar(marketParams, '$.loanToken'), 3)) IN (
         SELECT address FROM stablecoins
     )
 ),

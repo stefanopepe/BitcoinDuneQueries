@@ -52,13 +52,13 @@ aave_v3_sample AS (
 morpho_blue_market_test AS (
     SELECT
         cm.id AS market_id,
-        CAST(json_extract_scalar(cm.marketParams, '$.loanToken') AS VARBINARY) AS loan_token,
+        from_hex(substr(json_extract_scalar(cm.marketParams, '$.loanToken'), 3)) AS loan_token,
         COUNT(s.evt_tx_hash) AS supply_events
     FROM morpho_blue_ethereum.morphoblue_evt_createmarket cm
     LEFT JOIN morpho_blue_ethereum.morphoblue_evt_supply s
         ON s.id = cm.id
         AND s.evt_block_time >= CURRENT_DATE - INTERVAL '7' DAY
-    WHERE CAST(json_extract_scalar(cm.marketParams, '$.loanToken') AS VARBINARY) IN (
+    WHERE from_hex(substr(json_extract_scalar(cm.marketParams, '$.loanToken'), 3)) IN (
         SELECT address FROM stablecoins
     )
     GROUP BY cm.id, cm.marketParams
@@ -102,7 +102,7 @@ protocol_action_counts AS (
     WHERE s.evt_block_time >= CURRENT_DATE - INTERVAL '7' DAY
       AND s.id IN (
           SELECT id FROM morpho_blue_ethereum.morphoblue_evt_createmarket
-          WHERE CAST(json_extract_scalar(marketParams, '$.loanToken') AS VARBINARY) IN (
+          WHERE from_hex(substr(json_extract_scalar(marketParams, '$.loanToken'), 3)) IN (
               SELECT address FROM stablecoins
           )
       )
@@ -112,7 +112,7 @@ protocol_action_counts AS (
     WHERE b.evt_block_time >= CURRENT_DATE - INTERVAL '7' DAY
       AND b.id IN (
           SELECT id FROM morpho_blue_ethereum.morphoblue_evt_createmarket
-          WHERE CAST(json_extract_scalar(marketParams, '$.loanToken') AS VARBINARY) IN (
+          WHERE from_hex(substr(json_extract_scalar(marketParams, '$.loanToken'), 3)) IN (
               SELECT address FROM stablecoins
           )
       )
