@@ -1,0 +1,9 @@
+{
+  "as_of": "2026-02-26T12:02:19.398564+00:00",
+  "start_ts_utc": "2026-01-27 11:57:30",
+  "execution_id": "01KJCWZC5EY1DC1XYY60Y2CTF1",
+  "state": "QUERY_STATE_COMPLETED",
+  "rows": 33993,
+  "file_csv": "outputs/raw/borrow_events_30d.csv",
+  "file_jsonl": "outputs/raw/borrow_events_30d.jsonl"
+}

@@ -1,0 +1,18 @@
+{
+  "as_of": "2026-02-26T12:02:39.061980+00:00",
+  "bundle": "raw_ingest_30d",
+  "files": [
+    "outputs/raw/borrow_events_30d.csv",
+    "outputs/raw/borrow_events_30d.jsonl",
+    "outputs/raw/manifest_borrow_events_30d.json",
+    "outputs/raw/sql_signal_borrow_events.sql",
+    "outputs/raw/coverage_sanity_30d.csv",
+    "outputs/raw/coverage_sanity_30d.md",
+    "outputs/raw/loop_significance_fast_30d.csv"
+  ],
+  "notes": [
+    "borrow_events_30d is raw event-level extract from signal_borrow_events.sql",
+    "coverage_sanity_30d cross-references cohort coverage vs full Morpho stable borrow universe",
+    "loop_significance_fast_30d is chain-level statistical check for LS24 proxy"
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "as_of": "2026-02-26T11:54:08.642282+00:00",
+  "lookback_days": 30,
+  "start_ts_utc": "2026-01-27 11:49:27",
+  "jobs": [
+    {
+      "name": "borrow_events_30d",
+      "execution_id": "01KJCWGM9MHKVQDEYVR5SW5G53",
+      "state": "QUERY_STATE_COMPLETED",
+      "rows": 33993,
+      "file_csv": "outputs/raw/borrow_events_30d.csv",
+      "file_jsonl": "outputs/raw/borrow_events_30d.jsonl"
+    },
+    {
+      "name": "loop_significance_fast_30d",
+      "execution_id": "01KJCWRC2023P7RDQQYARHMZK9",
+      "state": "QUERY_STATE_COMPLETED",
+      "rows": 2,
+      "file_csv": "outputs/raw/loop_significance_fast_30d.csv"
+    },
+    {
+      "name": "coverage_sanity_30d",
+      "execution_id": "01KJCWRPSXH71CTXDPK4W7CBWZ",
+      "state": "QUERY_STATE_COMPLETED",
+      "rows": 2,
+      "file_csv": "outputs/raw/coverage_sanity_30d.csv"
+    }
+  ]
+}

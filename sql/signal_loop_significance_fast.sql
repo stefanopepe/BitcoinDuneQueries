@@ -27,8 +27,8 @@ morpho_markets_eth AS (
 morpho_markets_base AS (
   SELECT
     id AS market_id,
-    CAST(json_extract_scalar(marketParams, '$.loanToken') AS VARBINARY) AS loan_token,
-    CAST(json_extract_scalar(marketParams, '$.collateralToken') AS VARBINARY) AS collateral_token
+    from_hex(substr(json_extract_scalar(marketParams, '$.loanToken'), 3)) AS loan_token,
+    from_hex(substr(json_extract_scalar(marketParams, '$.collateralToken'), 3)) AS collateral_token
   FROM morpho_blue_base.morphoblue_evt_createmarket
 ),
 borrows AS (
