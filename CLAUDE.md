@@ -19,6 +19,24 @@ Apache License 2.0 - See LICENSE file for details.
 
 ---
 
+## Dune MCP-First Policy
+
+For this repository, AI planning and decision-making must prioritize Dune MCP context over generic context.
+
+- Primary endpoint: `https://api.dune.com/mcp/v1`
+- Canonical env var: `DUNE_API_KEY`
+- Standard MCP server alias: `dune_prod`
+
+Default behavior:
+
+1. Use Dune MCP first for schema/table discovery and guided query work.
+2. Use direct Dune REST API calls only as a fallback when MCP is unavailable or missing required capability.
+3. Keep API keys out of committed files and local config snippets.
+
+Reference: <https://docs.dune.com/api-reference/agents/mcp>
+
+---
+
 ## Development Pipeline
 
 This repository follows a structured pipeline for developing and validating Dune Analytics queries:
@@ -28,7 +46,7 @@ This repository follows a structured pipeline for developing and validating Dune
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  1. SCHEMA EXPLORATION                                                      │
-│     Use Dune API (curl) to explore table schemas and data formats           │
+│     Use Dune MCP first, then Dune API (curl) as fallback                    │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
                                       ▼
@@ -50,9 +68,9 @@ This repository follows a structured pipeline for developing and validating Dune
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Step 1: Schema Exploration via Dune API
+### Step 1: Schema Exploration via Dune MCP (Preferred)
 
-Use the Dune API with curl to explore available tables, schemas, and data formats before writing queries.
+Use Dune MCP first to explore available tables, schemas, and data formats before writing queries.
 
 > **IMPORTANT:** Before making API calls, consult [`docs/dune_database_schemas.md`](./docs/dune_database_schemas.md) for a reliable offline reference of table schemas. This avoids dependency on Dune's documentation endpoints which can be unreliable.
 
@@ -61,7 +79,18 @@ Use the Dune API with curl to explore available tables, schemas, and data format
 export DUNE_API_KEY="your_api_key_here"
 ```
 
-**Example API Calls:**
+**MCP Setup Examples:**
+```bash
+# Codex
+codex mcp add dune_prod --url "https://api.dune.com/mcp/v1?api_key=$DUNE_API_KEY"
+
+# Claude Code
+claude mcp add --scope user --transport http dune_prod https://api.dune.com/mcp/v1 --header "x-dune-api-key: $DUNE_API_KEY"
+```
+
+If MCP is unavailable for the requested operation, use direct API calls:
+
+**Fallback API Calls:**
 ```bash
 # Execute a query to explore a table schema
 curl -X POST "https://api.dune.com/api/v1/query/execute" \

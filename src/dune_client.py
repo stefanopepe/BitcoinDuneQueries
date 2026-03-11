@@ -22,17 +22,23 @@ class DuneExecution:
 
 def _get_api_key(mode: str = "exec") -> str:
     load_dotenv()
-    if mode == "exec":
-        api_key = os.getenv("DUNE_API_KEY_SPEPE") or os.getenv("DUNE_API_KEY")
-        if not api_key:
-            raise ValueError("DUNE_API_KEY_SPEPE or DUNE_API_KEY environment variable is not set")
+    if mode not in {"exec", "write"}:
+        raise ValueError(f"Unknown API key mode: {mode}")
+
+    # Canonical key for all operations.
+    api_key = os.getenv("DUNE_API_KEY")
+    if api_key:
         return api_key
-    if mode == "write":
-        api_key = os.getenv("DUNE_API_KEY") or os.getenv("DUNE_API_KEY_SPEPE")
-        if not api_key:
-            raise ValueError("DUNE_API_KEY or DUNE_API_KEY_SPEPE environment variable is not set")
-        return api_key
-    raise ValueError(f"Unknown API key mode: {mode}")
+
+    # Temporary backward compatibility fallback.
+    legacy_api_key = os.getenv("DUNE_API_KEY_SPEPE")
+    if legacy_api_key:
+        return legacy_api_key
+
+    raise ValueError(
+        "DUNE_API_KEY environment variable is not set "
+        "(legacy fallback DUNE_API_KEY_SPEPE is also unset)"
+    )
 
 
 def _request(method: str, path: str, api_key: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:

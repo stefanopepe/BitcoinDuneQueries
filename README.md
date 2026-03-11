@@ -30,17 +30,39 @@ This repository provides:
 - **Documented techniques** for on-chain analytics
 - **Production-ready queries** tested against live data
 
+## Dune MCP (Preferred)
+
+Use Dune MCP as the primary context and tool surface for exploration and planning.
+
+- Endpoint: `https://api.dune.com/mcp/v1`
+- Canonical API key env var: `DUNE_API_KEY`
+- Standard MCP server alias: `dune_prod`
+
+Codex setup:
+
+```bash
+codex mcp add dune_prod --url "https://api.dune.com/mcp/v1?api_key=$DUNE_API_KEY"
+```
+
+Claude Code setup:
+
+```bash
+claude mcp add --scope user --transport http dune_prod https://api.dune.com/mcp/v1 --header "x-dune-api-key: $DUNE_API_KEY"
+```
+
+Use direct REST API calls only when MCP is unavailable or insufficient for the task.
+
 ## Development Pipeline
 
 We follow a structured 4-step pipeline for developing and validating Dune queries:
 
 ```
-Schema Exploration → Query Development → Validation → Cost Estimation
+Schema Exploration (MCP-first) → Query Development → Validation → Cost Estimation
 ```
 
 ### 1. Schema Exploration
 
-Use the Dune API to explore table schemas and data formats before writing queries.
+Use Dune MCP first to explore tables/schemas and only fall back to direct API if needed.
 
 ```bash
 export DUNE_API_KEY="your_api_key_here"
