@@ -49,6 +49,29 @@ Use URL auth as documented by Dune for Codex:
 codex mcp add dune_prod --url "https://api.dune.com/mcp/v1?api_key=$DUNE_API_KEY"
 ```
 
+Set Codex timeout for long MCP calls:
+
+```toml
+[mcp_servers.dune_prod]
+url = "https://api.dune.com/mcp/v1?api_key=<YOUR_DUNE_API_KEY>"
+tool_timeout_sec = 300
+```
+
+Manual fallback (if Codex cannot write `~/.codex/config.toml`):
+
+```toml
+[mcp_servers.dune_prod]
+url = "https://api.dune.com/mcp/v1?api_key=<YOUR_DUNE_API_KEY>"
+tool_timeout_sec = 300
+```
+
+Then verify:
+
+```bash
+codex mcp list
+codex mcp get dune_prod
+```
+
 ### Claude Code
 
 Use header auth:
@@ -87,6 +110,9 @@ Use the same endpoint and prefer header auth where supported by their config for
 2. Phase 2 (client enablement):
 - each developer configures `dune_prod` locally in their client(s)
 - run a smoke check by calling at least one discovery tool (e.g., `searchTables`)
+- if setup fails with `failed to persist config.toml ... Operation not permitted`,
+  apply the manual fallback block above and re-run `codex mcp list`
+- if MCP calls fail with `Transport closed`, ensure `tool_timeout_sec = 300` is set for `dune_prod`
 
 3. Phase 3 (cleanup):
 - remove legacy `DUNE_API_KEY_SPEPE` references after migration window

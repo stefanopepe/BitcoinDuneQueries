@@ -44,6 +44,34 @@ Codex setup:
 codex mcp add dune_prod --url "https://api.dune.com/mcp/v1?api_key=$DUNE_API_KEY"
 ```
 
+Then set Codex MCP timeout (recommended by Dune guide to avoid `Transport closed` on long calls):
+
+```toml
+[mcp_servers.dune_prod]
+url = "https://api.dune.com/mcp/v1?api_key=<YOUR_DUNE_API_KEY>"
+tool_timeout_sec = 300
+```
+
+Codex manual setup (fallback if `codex mcp add` cannot write `~/.codex/config.toml`):
+
+1. Ensure `~/.codex/config.toml` exists.
+2. Add this block:
+
+```toml
+[mcp_servers.dune_prod]
+url = "https://api.dune.com/mcp/v1?api_key=<YOUR_DUNE_API_KEY>"
+tool_timeout_sec = 300
+```
+
+3. Verify:
+
+```bash
+codex mcp list
+codex mcp get dune_prod
+```
+
+Expected: `dune_prod` is `enabled` with URL `https://api.dune.com/mcp/v1?...`.
+
 Claude Code setup:
 
 ```bash
@@ -51,6 +79,15 @@ claude mcp add --scope user --transport http dune_prod https://api.dune.com/mcp/
 ```
 
 Use direct REST API calls only when MCP is unavailable or insufficient for the task.
+
+Troubleshooting:
+
+- `failed to persist config.toml ... Operation not permitted`:
+  - Codex cannot write `~/.codex/config.toml` in your environment.
+  - Apply the manual `config.toml` block above, or run Codex in a terminal/session with permission to write `~/.codex`.
+- `Transport closed` during MCP calls:
+  - Set `tool_timeout_sec = 300` in `[mcp_servers.dune_prod]` (official Dune MCP guidance for Codex).
+- Keep API keys out of git and shell history when possible; prefer env-var expansion over literal keys.
 
 ## Development Pipeline
 
