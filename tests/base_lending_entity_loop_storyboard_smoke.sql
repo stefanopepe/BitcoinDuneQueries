@@ -10,16 +10,19 @@
 -- ============================================================
 
 WITH stablecoins AS (
-    SELECT address FROM (
+    SELECT address, decimals FROM (
         VALUES
-            (0x833589fcd6edb6e08f4c7c32d4f71b54bda02913),  -- USDC
-            (0xfde4c96c8593536e31f229ea8f37b2ada2699bb2),  -- USDT
-            (0x50c5725949a6f0c72e6c4a641f24049a917db0cb)   -- DAI
-    ) AS t(address)
+            (0x833589fcd6edb6e08f4c7c32d4f71b54bda02913, 6),   -- USDC
+            (0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca, 6),   -- USDbC
+            (0xfde4c96c8593536e31f229ea8f37b2ada2699bb2, 6),   -- USDT
+            (0x50c5725949a6f0c72e6c4a641f24049a917db0cb, 18)   -- DAI
+    ) AS t(address, decimals)
 ),
 
 morpho_blue_stablecoin_markets AS (
-    SELECT id AS market_id
+    SELECT
+        id AS market_id,
+        from_hex(substr(json_extract_scalar(marketParams, '$.loanToken'), 3)) AS loan_token
     FROM morpho_blue_base.morphoblue_evt_createmarket
     WHERE from_hex(substr(json_extract_scalar(marketParams, '$.loanToken'), 3)) IN (
         SELECT address FROM stablecoins
@@ -37,40 +40,42 @@ actions AS (
         'aave_v3' AS protocol,
         'supply' AS action_type,
         COALESCE(onBehalfOf, "user") AS entity_address,
-        CAST(amount AS DOUBLE) / 1e6 AS amount_usd  -- simplified
+        CAST(amount AS DOUBLE) / POWER(10, sc.decimals) AS amount_usd
     FROM aave_v3_base.pool_evt_supply
+    JOIN stablecoins sc ON sc.address = reserve
     WHERE evt_block_time >= CURRENT_DATE - INTERVAL '14' DAY
-      AND reserve IN (SELECT address FROM stablecoins)
     UNION ALL
     -- Aave V3 borrow
     SELECT
         evt_block_time, CAST(date_trunc('day', evt_block_time) AS DATE),
         evt_tx_hash, evt_index, 'aave_v3', 'borrow',
         COALESCE(onBehalfOf, "user"),
-        CAST(amount AS DOUBLE) / 1e6
+        CAST(amount AS DOUBLE) / POWER(10, sc.decimals)
     FROM aave_v3_base.pool_evt_borrow
+    JOIN stablecoins sc ON sc.address = reserve
     WHERE evt_block_time >= CURRENT_DATE - INTERVAL '14' DAY
-      AND reserve IN (SELECT address FROM stablecoins)
     UNION ALL
     -- Morpho Blue supply
     SELECT
         evt_block_time, CAST(date_trunc('day', evt_block_time) AS DATE),
         evt_tx_hash, evt_index, 'morpho_blue', 'supply',
         COALESCE(onBehalf, caller),
-        CAST(assets AS DOUBLE) / 1e6
+        CAST(assets AS DOUBLE) / POWER(10, sc.decimals)
     FROM morpho_blue_base.morphoblue_evt_supply
+    JOIN morpho_blue_stablecoin_markets m ON m.market_id = id
+    JOIN stablecoins sc ON sc.address = m.loan_token
     WHERE evt_block_time >= CURRENT_DATE - INTERVAL '14' DAY
-      AND id IN (SELECT market_id FROM morpho_blue_stablecoin_markets)
     UNION ALL
     -- Morpho Blue borrow
     SELECT
         evt_block_time, CAST(date_trunc('day', evt_block_time) AS DATE),
         evt_tx_hash, evt_index, 'morpho_blue', 'borrow',
         COALESCE(onBehalf, caller),
-        CAST(assets AS DOUBLE) / 1e6
+        CAST(assets AS DOUBLE) / POWER(10, sc.decimals)
     FROM morpho_blue_base.morphoblue_evt_borrow
+    JOIN morpho_blue_stablecoin_markets m ON m.market_id = id
+    JOIN stablecoins sc ON sc.address = m.loan_token
     WHERE evt_block_time >= CURRENT_DATE - INTERVAL '14' DAY
-      AND id IN (SELECT market_id FROM morpho_blue_stablecoin_markets)
 ),
 
 -- Filter to multi-protocol entities
@@ -108,3 +113,4 @@ SELECT
     MAX(event_sequence) AS max_event_depth,
     AVG(event_sequence) AS avg_events_per_entity
 FROM entity_actions
+HAVING COUNT(*) > 0

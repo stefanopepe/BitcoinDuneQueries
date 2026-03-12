@@ -76,11 +76,3 @@ SELECT
     category,
     event_count
 FROM all_results
-UNION ALL
-SELECT
-    'collateral_distribution',
-    'none',
-    'none',
-    'unknown',
-    0
-WHERE NOT EXISTS (SELECT 1 FROM all_results)

@@ -57,4 +57,5 @@ SELECT
     action_type,
     cnt AS event_count
 FROM protocol_action_counts
+WHERE cnt > 0
 ORDER BY event_count DESC

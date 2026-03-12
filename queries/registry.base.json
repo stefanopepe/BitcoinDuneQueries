@@ -5,7 +5,7 @@
     {
       "name": "base_lending_action_ledger_morpho",
       "file": "queries/base/lending/lending_action_ledger_morpho.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6743107,
       "type": "base",
       "architecture": "v2",
       "smoke_test": "tests/base_lending_action_ledger_morpho_smoke.sql",
@@ -15,7 +15,7 @@
     {
       "name": "base_lending_action_ledger_aave_v3",
       "file": "queries/base/lending/lending_action_ledger_aave_v3.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6743108,
       "type": "base",
       "architecture": "v2",
       "smoke_test": "tests/base_lending_action_ledger_aave_v3_smoke.sql",
@@ -25,7 +25,7 @@
     {
       "name": "base_lending_action_ledger_unified",
       "file": "queries/base/lending/lending_action_ledger_unified.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6743109,
       "type": "base",
       "architecture": "v2",
       "smoke_test": "tests/base_lending_action_ledger_unified_smoke.sql",
@@ -35,7 +35,7 @@
     {
       "name": "base_lending_entity_balance_sheet",
       "file": "queries/base/lending/lending_entity_balance_sheet.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6743111,
       "type": "nested",
       "architecture": "v2",
       "smoke_test": "tests/base_lending_entity_balance_sheet_smoke.sql",
@@ -47,7 +47,7 @@
     {
       "name": "base_lending_flow_stitching",
       "file": "queries/base/lending/lending_flow_stitching.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6743112,
       "type": "base",
       "architecture": "v2",
       "smoke_test": "tests/base_lending_flow_stitching_smoke.sql",
@@ -59,7 +59,7 @@
     {
       "name": "base_lending_loop_detection",
       "file": "queries/base/lending/lending_loop_detection.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6743113,
       "type": "nested",
       "architecture": "v2",
       "smoke_test": "tests/base_lending_loop_detection_smoke.sql",
@@ -71,7 +71,7 @@
     {
       "name": "base_lending_loop_metrics_daily",
       "file": "queries/base/lending/lending_loop_metrics_daily.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6743114,
       "type": "nested",
       "architecture": "v2",
       "smoke_test": "tests/base_lending_loop_metrics_daily_smoke.sql",
@@ -84,7 +84,7 @@
     {
       "name": "base_lending_sankey_flows",
       "file": "queries/base/lending/lending_sankey_flows.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6743115,
       "type": "nested",
       "architecture": "v2",
       "smoke_test": "tests/base_lending_sankey_flows_smoke.sql",
@@ -96,7 +96,7 @@
     {
       "name": "base_lending_entity_loop_storyboard",
       "file": "queries/base/lending/lending_entity_loop_storyboard.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6743116,
       "type": "nested",
       "architecture": "v2",
       "smoke_test": "tests/base_lending_entity_loop_storyboard_smoke.sql",
@@ -108,7 +108,7 @@
     {
       "name": "base_lending_collateral_ledger",
       "file": "queries/base/lending/lending_collateral_ledger.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6743110,
       "type": "base",
       "architecture": "v2",
       "smoke_test": "tests/base_lending_collateral_ledger_smoke.sql",
@@ -118,7 +118,7 @@
     {
       "name": "base_lending_loop_collateral_profile",
       "file": "queries/base/lending/lending_loop_collateral_profile.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6743117,
       "type": "nested",
       "architecture": "v2",
       "smoke_test": "tests/base_lending_loop_collateral_profile_smoke.sql",

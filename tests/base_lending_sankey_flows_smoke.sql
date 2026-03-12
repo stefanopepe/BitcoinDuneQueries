@@ -10,16 +10,19 @@
 -- ============================================================
 
 WITH stablecoins AS (
-    SELECT address, symbol FROM (
+    SELECT address, symbol, decimals FROM (
         VALUES
-            (0x833589fcd6edb6e08f4c7c32d4f71b54bda02913, 'USDC'),
-            (0xfde4c96c8593536e31f229ea8f37b2ada2699bb2, 'USDT'),
-            (0x50c5725949a6f0c72e6c4a641f24049a917db0cb, 'DAI')
-    ) AS t(address, symbol)
+            (0x833589fcd6edb6e08f4c7c32d4f71b54bda02913, 'USDC', 6),
+            (0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca, 'USDbC', 6),
+            (0xfde4c96c8593536e31f229ea8f37b2ada2699bb2, 'USDT', 6),
+            (0x50c5725949a6f0c72e6c4a641f24049a917db0cb, 'DAI', 18)
+    ) AS t(address, symbol, decimals)
 ),
 
 morpho_blue_stablecoin_markets AS (
-    SELECT id AS market_id
+    SELECT
+        id AS market_id,
+        from_hex(substr(json_extract_scalar(marketParams, '$.loanToken'), 3)) AS loan_token
     FROM morpho_blue_base.morphoblue_evt_createmarket
     WHERE from_hex(substr(json_extract_scalar(marketParams, '$.loanToken'), 3)) IN (
         SELECT address FROM stablecoins
@@ -35,7 +38,7 @@ aave_borrows AS (
         'aave_v3' AS protocol,
         COALESCE(b.onBehalfOf, b."user") AS entity_address,
         sc.symbol AS asset_symbol,
-        CAST(b.amount AS DOUBLE) / 1e6 AS amount_usd  -- simplified
+        CAST(b.amount AS DOUBLE) / POWER(10, sc.decimals) AS amount_usd
     FROM aave_v3_base.pool_evt_borrow b
     JOIN stablecoins sc ON sc.address = b.reserve
     WHERE b.evt_block_time >= CURRENT_DATE - INTERVAL '14' DAY
@@ -63,11 +66,12 @@ morpho_borrows AS (
         b.evt_index,
         'morpho_blue' AS protocol,
         COALESCE(b.onBehalf, b.caller) AS entity_address,
-        'USDC' AS asset_symbol,  -- simplified
-        CAST(b.assets AS DOUBLE) / 1e6 AS amount_usd
+        sc.symbol AS asset_symbol,
+        CAST(b.assets AS DOUBLE) / POWER(10, sc.decimals) AS amount_usd
     FROM morpho_blue_base.morphoblue_evt_borrow b
+    JOIN morpho_blue_stablecoin_markets m ON m.market_id = b.id
+    JOIN stablecoins sc ON sc.address = m.loan_token
     WHERE b.evt_block_time >= CURRENT_DATE - INTERVAL '14' DAY
-      AND b.id IN (SELECT market_id FROM morpho_blue_stablecoin_markets)
 ),
 
 -- Morpho Blue supplies
@@ -78,10 +82,11 @@ morpho_supplies AS (
         s.evt_index,
         'morpho_blue' AS protocol,
         COALESCE(s.onBehalf, s.caller) AS entity_address,
-        'USDC' AS asset_symbol
+        sc.symbol AS asset_symbol
     FROM morpho_blue_base.morphoblue_evt_supply s
+    JOIN morpho_blue_stablecoin_markets m ON m.market_id = s.id
+    JOIN stablecoins sc ON sc.address = m.loan_token
     WHERE s.evt_block_time >= CURRENT_DATE - INTERVAL '14' DAY
-      AND s.id IN (SELECT market_id FROM morpho_blue_stablecoin_markets)
 ),
 
 -- Same-tx cross-protocol flows with Sankey edge format
@@ -122,12 +127,3 @@ results AS (
 )
 
 SELECT * FROM results
-UNION ALL
-SELECT
-    'sankey_edge_distribution',
-    'none',
-    'none',
-    0,
-    0,
-    0
-WHERE NOT EXISTS (SELECT 1 FROM results)
