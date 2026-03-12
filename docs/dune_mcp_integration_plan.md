@@ -23,7 +23,7 @@ This plan does **not** require committing local MCP client config files with sec
 
 1. API key source:
 - Use `DUNE_API_KEY` as the primary environment variable.
-- Keep `DUNE_API_KEY_SPEPE` only as temporary backward compatibility in code until migration is complete.
+- Optional: use `DUNE_API_KEY_FREE` for low-priority runs where reduced endpoint access is acceptable.
 
 2. MCP endpoint:
 - Always use `https://api.dune.com/mcp/v1`.
@@ -95,8 +95,8 @@ Use the same endpoint and prefer header auth where supported by their config for
 - Add a short pointer in `CLAUDE.md` to keep AI workflows aligned with MCP usage.
 
 2. Environment consistency:
-- Keep `.env.example` focused on `DUNE_API_KEY`.
-- In code, progressively migrate call sites to prefer `DUNE_API_KEY` first.
+- Keep `.env.example` with canonical `DUNE_API_KEY` and optional `DUNE_API_KEY_FREE`.
+- In code, prefer `DUNE_API_KEY` first and only fall back to `DUNE_API_KEY_FREE` for low-priority workloads.
 
 3. Optional helper:
 - Add a small non-secret helper script (`scripts/setup_mcp.sh`) that validates `DUNE_API_KEY` and prints/setup commands for each client.
@@ -115,8 +115,8 @@ Use the same endpoint and prefer header auth where supported by their config for
 - if MCP calls fail with `Transport closed`, ensure `tool_timeout_sec = 300` is set for `dune_prod`
 
 3. Phase 3 (cleanup):
-- remove legacy `DUNE_API_KEY_SPEPE` references after migration window
-- keep one canonical env var (`DUNE_API_KEY`)
+- remove any legacy/private env var names from docs and code
+- keep `DUNE_API_KEY` as canonical for production and query-management endpoints
 
 ## Acceptance Criteria
 

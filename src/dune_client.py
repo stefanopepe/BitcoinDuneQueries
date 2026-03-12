@@ -30,15 +30,15 @@ def _get_api_key(mode: str = "exec") -> str:
     if api_key:
         return api_key
 
-    # Temporary backward compatibility fallback.
-    legacy_api_key = os.getenv("DUNE_API_KEY_SPEPE")
-    if legacy_api_key:
-        return legacy_api_key
+    # Optional free-tier key for low-priority read/exec workloads only.
+    if mode == "exec":
+        free_api_key = os.getenv("DUNE_API_KEY_FREE")
+        if free_api_key:
+            return free_api_key
 
-    raise ValueError(
-        "DUNE_API_KEY environment variable is not set "
-        "(legacy fallback DUNE_API_KEY_SPEPE is also unset)"
-    )
+    if mode == "write":
+        raise ValueError("DUNE_API_KEY environment variable is not set")
+    raise ValueError("DUNE_API_KEY or DUNE_API_KEY_FREE environment variable is not set")
 
 
 def _request(method: str, path: str, api_key: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:

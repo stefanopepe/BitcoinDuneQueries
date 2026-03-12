@@ -1,0 +1,65 @@
+{
+  "generated_at": "2026-03-12T15:30:15Z",
+  "chain_scope": "base",
+  "active_only": true,
+  "execution_tier": "serving",
+  "architecture": "all",
+  "queries": [
+    {
+      "name": "base_lending_entity_loop_storyboard",
+      "chain": "base",
+      "active": true,
+      "execution_tier": "serving",
+      "refresh_window_days": 90,
+      "query_id": 6743116,
+      "last_state": null,
+      "runtime_ms": null,
+      "credits": null,
+      "last_run_time": null,
+      "latest_execution_id": null,
+      "error": "metadata_unavailable"
+    },
+    {
+      "name": "base_lending_loop_collateral_profile",
+      "chain": "base",
+      "active": true,
+      "execution_tier": "serving",
+      "refresh_window_days": 90,
+      "query_id": 6743117,
+      "last_state": null,
+      "runtime_ms": null,
+      "credits": null,
+      "last_run_time": null,
+      "latest_execution_id": null,
+      "error": "metadata_unavailable"
+    },
+    {
+      "name": "base_lending_loop_metrics_daily",
+      "chain": "base",
+      "active": true,
+      "execution_tier": "serving",
+      "refresh_window_days": 90,
+      "query_id": 6743114,
+      "last_state": null,
+      "runtime_ms": null,
+      "credits": null,
+      "last_run_time": null,
+      "latest_execution_id": null,
+      "error": "metadata_unavailable"
+    },
+    {
+      "name": "base_lending_sankey_flows",
+      "chain": "base",
+      "active": true,
+      "execution_tier": "serving",
+      "refresh_window_days": 90,
+      "query_id": 6743115,
+      "last_state": null,
+      "runtime_ms": null,
+      "credits": null,
+      "last_run_time": null,
+      "latest_execution_id": null,
+      "error": "metadata_unavailable"
+    }
+  ]
+}

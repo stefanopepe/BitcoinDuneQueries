@@ -10,6 +10,7 @@ This folder contains reference documentation for the DuneQueries repository.
 | [queries_schemas.md](./queries_schemas.md) | Documentation of all queries in this repository with their input/output schemas |
 | [query_constants.md](./query_constants.md) | Ledger of hardcoded thresholds, intervals, address allowlists, and other fixed constants |
 | [dune_mcp_integration_plan.md](./dune_mcp_integration_plan.md) | Consistent rollout plan for adding Dune MCP across AI clients |
+| [base_lending_refactor_runbook.md](./base_lending_refactor_runbook.md) | Base-first execution policy, 90-day full-refresh cadence, and rollback commands |
 
 ---
 
