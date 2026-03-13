@@ -61,4 +61,5 @@ FROM (
     UNION ALL SELECT * FROM recent_repay
     UNION ALL SELECT * FROM recent_withdraw
 )
+WHERE event_count > 0
 ORDER BY event_count DESC

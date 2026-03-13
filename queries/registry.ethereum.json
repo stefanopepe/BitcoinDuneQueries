@@ -10,7 +10,10 @@
       "architecture": "v2",
       "smoke_test": "tests/lending_action_ledger_morpho_smoke.sql",
       "dependencies": [],
-      "description": "Unified action ledger for Morpho Aave V2 lending events"
+      "description": "Unified action ledger for Morpho Aave V2 lending events",
+      "active": false,
+      "refresh_window_days": 90,
+      "execution_tier": "core"
     },
     {
       "name": "lending_action_ledger_aave_v3",
@@ -20,7 +23,10 @@
       "architecture": "v2",
       "smoke_test": "tests/lending_action_ledger_aave_v3_smoke.sql",
       "dependencies": [],
-      "description": "Unified action ledger for Aave V3 lending events"
+      "description": "Unified action ledger for Aave V3 lending events",
+      "active": false,
+      "refresh_window_days": 90,
+      "execution_tier": "core"
     },
     {
       "name": "lending_action_ledger_unified",
@@ -30,7 +36,10 @@
       "architecture": "v2",
       "smoke_test": "tests/lending_action_ledger_unified_smoke.sql",
       "dependencies": [],
-      "description": "Multi-protocol unified stablecoin action ledger (Aave V3, Morpho Blue, Compound V3, Compound V2) with amounts, prices, and liquidations"
+      "description": "Multi-protocol unified stablecoin action ledger (Aave V3, Morpho Blue, Compound V3, Compound V2) with amounts, prices, and liquidations",
+      "active": false,
+      "refresh_window_days": 90,
+      "execution_tier": "core"
     },
     {
       "name": "lending_entity_balance_sheet",
@@ -42,7 +51,10 @@
       "dependencies": [
         "lending_action_ledger_unified"
       ],
-      "description": "Per-entity balance sheets with collateral and debt positions"
+      "description": "Per-entity balance sheets with collateral and debt positions",
+      "active": false,
+      "refresh_window_days": 90,
+      "execution_tier": "core"
     },
     {
       "name": "lending_flow_stitching",
@@ -54,7 +66,10 @@
       "dependencies": [
         "lending_action_ledger_unified"
       ],
-      "description": "Cross-protocol flow detection (borrow->transfer->supply). Materialized with incremental processing to break inline chain for downstream queries."
+      "description": "Cross-protocol flow detection (borrow->transfer->supply). Materialized with incremental processing to break inline chain for downstream queries.",
+      "active": false,
+      "refresh_window_days": 90,
+      "execution_tier": "core"
     },
     {
       "name": "lending_loop_detection",
@@ -66,7 +81,10 @@
       "dependencies": [
         "lending_flow_stitching"
       ],
-      "description": "Multi-hop lending loop detection using window functions (islands-and-gaps). Supports arbitrary hop depth with uniform 1-hour temporal constraint."
+      "description": "Multi-hop lending loop detection using window functions (islands-and-gaps). Supports arbitrary hop depth with uniform 1-hour temporal constraint.",
+      "active": false,
+      "refresh_window_days": 90,
+      "execution_tier": "core"
     },
     {
       "name": "lending_loop_metrics_daily",
@@ -79,7 +97,10 @@
         "lending_loop_detection",
         "lending_flow_stitching"
       ],
-      "description": "Daily aggregated metrics for lending loop activity"
+      "description": "Daily aggregated metrics for lending loop activity",
+      "active": false,
+      "refresh_window_days": 90,
+      "execution_tier": "serving"
     },
     {
       "name": "lending_sankey_flows",
@@ -91,7 +112,10 @@
       "dependencies": [
         "lending_flow_stitching"
       ],
-      "description": "Edge list dataset for Sankey diagram visualization"
+      "description": "Edge list dataset for Sankey diagram visualization",
+      "active": false,
+      "refresh_window_days": 90,
+      "execution_tier": "serving"
     },
     {
       "name": "lending_entity_loop_storyboard",
@@ -103,7 +127,10 @@
       "dependencies": [
         "lending_action_ledger_unified"
       ],
-      "description": "Time-ordered per-entity loop traces with running totals"
+      "description": "Time-ordered per-entity loop traces with running totals",
+      "active": false,
+      "refresh_window_days": 90,
+      "execution_tier": "serving"
     },
     {
       "name": "lending_collateral_ledger",
@@ -113,7 +140,10 @@
       "architecture": "v2",
       "smoke_test": "tests/lending_collateral_ledger_smoke.sql",
       "dependencies": [],
-      "description": "Multi-protocol collateral event ledger (WBTC, WETH, wstETH, weETH, rETH, cbETH) tracking what backs stablecoin borrows"
+      "description": "Multi-protocol collateral event ledger (WBTC, WETH, wstETH, weETH, rETH, cbETH) tracking what backs stablecoin borrows",
+      "active": false,
+      "refresh_window_days": 90,
+      "execution_tier": "core"
     },
     {
       "name": "lending_loop_collateral_profile",
@@ -126,7 +156,10 @@
         "lending_flow_stitching",
         "lending_collateral_ledger"
       ],
-      "description": "Joins cross-protocol flows with collateral positions to segment loop activity by backing asset (BTC vs ETH vs LST)"
+      "description": "Joins cross-protocol flows with collateral positions to segment loop activity by backing asset (BTC vs ETH vs LST)",
+      "active": false,
+      "refresh_window_days": 90,
+      "execution_tier": "serving"
     }
   ]
 }

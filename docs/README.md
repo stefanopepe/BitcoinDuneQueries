@@ -10,6 +10,7 @@ This folder contains reference documentation for the DuneQueries repository.
 | [queries_schemas.md](./queries_schemas.md) | Documentation of all queries in this repository with their input/output schemas |
 | [query_constants.md](./query_constants.md) | Ledger of hardcoded thresholds, intervals, address allowlists, and other fixed constants |
 | [dune_mcp_integration_plan.md](./dune_mcp_integration_plan.md) | Consistent rollout plan for adding Dune MCP across AI clients |
+| [base_lending_refactor_runbook.md](./base_lending_refactor_runbook.md) | Base-first execution policy, 90-day full-refresh cadence, and rollback commands |
 
 ---
 
@@ -43,6 +44,12 @@ Query metadata is stored in chain-specific registry files:
 - `queries/registry.bitcoin.json`
 - `queries/registry.ethereum.json`
 - `queries/registry.base.json`
+
+### Time-Scoped Note: Base Lending Loops
+
+As of **2026-02-25 16:31:27 UTC** (**2026-02-25 17:31:27 CET +0100**), Base lending loop queries in this repository may return empty results for recent windows. This is an observed market-state outcome (very low recent Aave stablecoin activity and near-zero Aave/Morpho overlap), not necessarily a query defect.
+
+This interpretation is time-dependent and should be revalidated on fresh data before reuse in future analysis or dashboards.
 
 ### Query File Naming
 

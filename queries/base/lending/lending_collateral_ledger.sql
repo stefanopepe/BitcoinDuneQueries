@@ -117,7 +117,7 @@ stablecoin_addresses AS (
     FROM (
         VALUES
             (0x833589fcd6edb6e08f4c7c32d4f71b54bda02913),  -- USDC
-            (0xd9aaec86b65d86f6a7b5a5b0c42ffa531710b6ca),  -- USDbC
+            (0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca),  -- USDbC
             (0xfde4c96c8593536e31f229ea8f37b2ada2699bb2),  -- USDT
             (0x50c5725949a6f0c72e6c4a641f24049a917db0cb)   -- DAI
     ) AS t(address)
@@ -133,9 +133,9 @@ stablecoin_addresses AS (
 morpho_blue_collateral_markets AS (
     SELECT
         id AS market_id,
-        CAST(json_extract_scalar(marketParams, '$.collateralToken') AS VARBINARY) AS collateral_token
+        from_hex(substr(json_extract_scalar(marketParams, '$.collateralToken'), 3)) AS collateral_token
     FROM morpho_blue_base.morphoblue_evt_createmarket
-    WHERE CAST(json_extract_scalar(marketParams, '$.collateralToken') AS VARBINARY) IN (
+    WHERE from_hex(substr(json_extract_scalar(marketParams, '$.collateralToken'), 3)) IN (
         SELECT address FROM collateral_addresses
     )
 ),

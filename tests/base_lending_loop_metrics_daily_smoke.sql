@@ -99,11 +99,3 @@ results AS (
 )
 
 SELECT * FROM results
-UNION ALL
-SELECT
-    'daily_loop_metrics',
-    CURRENT_DATE,
-    0,
-    0,
-    0
-WHERE NOT EXISTS (SELECT 1 FROM results)

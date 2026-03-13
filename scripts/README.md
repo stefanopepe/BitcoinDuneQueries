@@ -54,14 +54,23 @@ python -m scripts.smoke_runner --list
 # Run a specific smoke test
 python -m scripts.smoke_runner --test bitcoin_tx_features_daily
 
-# Run all smoke tests
+# Run Base core tier (default scope)
 python -m scripts.smoke_runner --all
 
-# Run only V2 architecture tests
-python -m scripts.smoke_runner --all --architecture v2
+# Run Base serving tier
+python -m scripts.smoke_runner --all --tier serving
 
-# Set custom timeout (default: 300 seconds)
-python -m scripts.smoke_runner --test bitcoin_tx_features_daily --timeout 600
+# Run frozen Ethereum queries explicitly (rollback/debug scope)
+python -m scripts.smoke_runner --all --chain ethereum --active-only false --tier all
+
+# Write Base execution inventory and KPI report only (no smoke execution)
+python -m scripts.smoke_runner --inventory-only --chain base --tier all
+
+# Run and collect execution metadata artifacts
+python -m scripts.smoke_runner --all --chain base --tier core --use-mcp-metrics
+
+# Set custom timeout/window
+python -m scripts.smoke_runner --all --timeout 600 --window-days 90
 ```
 
 ### Registry Manager (`registry_manager.py`)
@@ -124,6 +133,9 @@ The scripts merge these files transparently and operate on a single in-memory re
 | `smoke_test` | Path to smoke test file (null if none) |
 | `dependencies` | List of query names this query depends on |
 | `description` | Human-readable description |
+| `active` | Whether query is included in default execution scope |
+| `refresh_window_days` | Default rolling window for scoped runs |
+| `execution_tier` | Run tier: `core` or `serving` |
 
 ## Programmatic Usage
 
@@ -210,6 +222,14 @@ ValueError: DUNE_API_KEY environment variable is not set
 ```
 
 Ensure your `.env` file exists and contains a valid API key.
+
+### HTTP 403 on `/query/{id}`
+
+If query metadata checks fail with HTTP 403 (for example, `Query management endpoints are only available in our paid plans`), the active key does not have query-management access.
+
+- Use the paid-plan key via `DUNE_API_KEY`.
+- Keep low-priority/free credentials in `DUNE_API_KEY_FREE`.
+- Use `DUNE_API_KEY` for inventory/parity checks and query-management endpoints.
 
 ### Query Not Found
 

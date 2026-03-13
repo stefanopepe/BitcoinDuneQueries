@@ -14,6 +14,7 @@ WITH stablecoins AS (
     SELECT address FROM (
         VALUES
             (0x833589fcd6edb6e08f4c7c32d4f71b54bda02913),  -- USDC
+            (0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca),  -- USDbC
             (0xfde4c96c8593536e31f229ea8f37b2ada2699bb2),  -- USDT
             (0x50c5725949a6f0c72e6c4a641f24049a917db0cb)   -- DAI
     ) AS t(address)
@@ -101,11 +102,3 @@ results AS (
 )
 
 SELECT * FROM results
-UNION ALL
-SELECT
-    'collateral_profile_distribution',
-    'unknown',
-    0,
-    0,
-    0
-WHERE NOT EXISTS (SELECT 1 FROM results)

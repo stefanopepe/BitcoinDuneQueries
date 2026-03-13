@@ -5,73 +5,91 @@
     {
       "name": "base_lending_action_ledger_morpho",
       "file": "queries/base/lending/lending_action_ledger_morpho.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6743107,
       "type": "base",
       "architecture": "v2",
       "smoke_test": "tests/base_lending_action_ledger_morpho_smoke.sql",
       "dependencies": [],
-      "description": "Unified action ledger for Morpho lending events on Base"
+      "description": "Unified action ledger for Morpho lending events on Base",
+      "active": true,
+      "refresh_window_days": 90,
+      "execution_tier": "core"
     },
     {
       "name": "base_lending_action_ledger_aave_v3",
       "file": "queries/base/lending/lending_action_ledger_aave_v3.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6743108,
       "type": "base",
       "architecture": "v2",
       "smoke_test": "tests/base_lending_action_ledger_aave_v3_smoke.sql",
       "dependencies": [],
-      "description": "Unified action ledger for Aave V3 lending events on Base"
+      "description": "Unified action ledger for Aave V3 lending events on Base",
+      "active": true,
+      "refresh_window_days": 90,
+      "execution_tier": "core"
     },
     {
       "name": "base_lending_action_ledger_unified",
       "file": "queries/base/lending/lending_action_ledger_unified.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6743109,
       "type": "base",
       "architecture": "v2",
       "smoke_test": "tests/base_lending_action_ledger_unified_smoke.sql",
       "dependencies": [],
-      "description": "Multi-protocol unified stablecoin action ledger on Base"
+      "description": "Multi-protocol unified stablecoin action ledger on Base",
+      "active": true,
+      "refresh_window_days": 90,
+      "execution_tier": "core"
     },
     {
       "name": "base_lending_entity_balance_sheet",
       "file": "queries/base/lending/lending_entity_balance_sheet.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6743111,
       "type": "nested",
       "architecture": "v2",
       "smoke_test": "tests/base_lending_entity_balance_sheet_smoke.sql",
       "dependencies": [
         "base_lending_action_ledger_unified"
       ],
-      "description": "Per-entity balance sheets with collateral and debt positions on Base"
+      "description": "Per-entity balance sheets with collateral and debt positions on Base",
+      "active": true,
+      "refresh_window_days": 90,
+      "execution_tier": "core"
     },
     {
       "name": "base_lending_flow_stitching",
       "file": "queries/base/lending/lending_flow_stitching.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6743112,
       "type": "base",
       "architecture": "v2",
       "smoke_test": "tests/base_lending_flow_stitching_smoke.sql",
       "dependencies": [
         "base_lending_action_ledger_unified"
       ],
-      "description": "Cross-protocol flow detection on Base"
+      "description": "Cross-protocol flow detection on Base",
+      "active": true,
+      "refresh_window_days": 90,
+      "execution_tier": "core"
     },
     {
       "name": "base_lending_loop_detection",
       "file": "queries/base/lending/lending_loop_detection.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6743113,
       "type": "nested",
       "architecture": "v2",
       "smoke_test": "tests/base_lending_loop_detection_smoke.sql",
       "dependencies": [
         "base_lending_flow_stitching"
       ],
-      "description": "Multi-hop lending loop detection on Base"
+      "description": "Multi-hop lending loop detection on Base",
+      "active": true,
+      "refresh_window_days": 90,
+      "execution_tier": "core"
     },
     {
       "name": "base_lending_loop_metrics_daily",
       "file": "queries/base/lending/lending_loop_metrics_daily.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6743114,
       "type": "nested",
       "architecture": "v2",
       "smoke_test": "tests/base_lending_loop_metrics_daily_smoke.sql",
@@ -79,46 +97,58 @@
         "base_lending_loop_detection",
         "base_lending_flow_stitching"
       ],
-      "description": "Daily aggregated metrics for lending loop activity on Base"
+      "description": "Daily aggregated metrics for lending loop activity on Base",
+      "active": true,
+      "refresh_window_days": 90,
+      "execution_tier": "serving"
     },
     {
       "name": "base_lending_sankey_flows",
       "file": "queries/base/lending/lending_sankey_flows.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6743115,
       "type": "nested",
       "architecture": "v2",
       "smoke_test": "tests/base_lending_sankey_flows_smoke.sql",
       "dependencies": [
         "base_lending_flow_stitching"
       ],
-      "description": "Edge list dataset for Sankey diagram visualization on Base"
+      "description": "Edge list dataset for Sankey diagram visualization on Base",
+      "active": true,
+      "refresh_window_days": 90,
+      "execution_tier": "serving"
     },
     {
       "name": "base_lending_entity_loop_storyboard",
       "file": "queries/base/lending/lending_entity_loop_storyboard.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6743116,
       "type": "nested",
       "architecture": "v2",
       "smoke_test": "tests/base_lending_entity_loop_storyboard_smoke.sql",
       "dependencies": [
         "base_lending_action_ledger_unified"
       ],
-      "description": "Time-ordered per-entity loop traces with running totals on Base"
+      "description": "Time-ordered per-entity loop traces with running totals on Base",
+      "active": true,
+      "refresh_window_days": 90,
+      "execution_tier": "serving"
     },
     {
       "name": "base_lending_collateral_ledger",
       "file": "queries/base/lending/lending_collateral_ledger.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6743110,
       "type": "base",
       "architecture": "v2",
       "smoke_test": "tests/base_lending_collateral_ledger_smoke.sql",
       "dependencies": [],
-      "description": "Multi-protocol collateral event ledger with cbBTC/WBTC/WETH/eth_lst on Base"
+      "description": "Multi-protocol collateral event ledger with cbBTC/WBTC/WETH/eth_lst on Base",
+      "active": true,
+      "refresh_window_days": 90,
+      "execution_tier": "core"
     },
     {
       "name": "base_lending_loop_collateral_profile",
       "file": "queries/base/lending/lending_loop_collateral_profile.sql",
-      "dune_query_id": null,
+      "dune_query_id": 6743117,
       "type": "nested",
       "architecture": "v2",
       "smoke_test": "tests/base_lending_loop_collateral_profile_smoke.sql",
@@ -126,7 +156,10 @@
         "base_lending_flow_stitching",
         "base_lending_collateral_ledger"
       ],
-      "description": "Joins cross-protocol flows with collateral positions to segment loop activity by backing asset on Base"
+      "description": "Joins cross-protocol flows with collateral positions to segment loop activity by backing asset on Base",
+      "active": true,
+      "refresh_window_days": 90,
+      "execution_tier": "serving"
     }
   ]
 }

@@ -159,6 +159,23 @@ def validate_registry() -> list[str]:
             if dep not in names:
                 errors.append(f"[{name}] Unknown dependency: {dep}")
 
+        # Validate execution metadata fields when present
+        if "execution_tier" in query and query["execution_tier"] not in {"core", "serving"}:
+            errors.append(f"[{name}] Invalid execution_tier: {query['execution_tier']}")
+
+        if "refresh_window_days" in query:
+            try:
+                days = int(query["refresh_window_days"])
+                if days <= 0:
+                    errors.append(f"[{name}] refresh_window_days must be > 0")
+            except (TypeError, ValueError):
+                errors.append(f"[{name}] refresh_window_days must be an integer")
+
+        # Base-first policy: active Base queries must have a Dune query ID.
+        if query.get("_registry_file") == "queries/registry.base.json":
+            if bool(query.get("active", True)) and not query.get("dune_query_id"):
+                errors.append(f"[{name}] Active Base query missing dune_query_id")
+
     return errors
 
 

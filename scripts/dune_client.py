@@ -51,8 +51,10 @@ def _get_api_key() -> str:
     load_dotenv()
     api_key = os.getenv("DUNE_API_KEY")
     if not api_key:
+        api_key = os.getenv("DUNE_API_KEY_FREE")
+    if not api_key:
         raise ValueError(
-            "DUNE_API_KEY environment variable is not set. "
+            "DUNE_API_KEY (or optional DUNE_API_KEY_FREE) environment variable is not set. "
             "Copy .env.example to .env and add your API key."
         )
     return api_key
@@ -297,3 +299,15 @@ def get_latest_result(
         return ExecutionResult(True, None, "QUERY_STATE_COMPLETED", rows, columns, len(rows))
     except Exception as e:
         return ExecutionResult(False, None, "FAILED", [], [], 0, str(e))
+
+
+def get_query_details(query_id: int) -> dict[str, Any]:
+    """Fetch query metadata by query ID."""
+    api_key = _get_api_key()
+    return _request_with_retry("GET", f"/query/{query_id}", api_key)
+
+
+def get_execution_status(execution_id: str) -> dict[str, Any]:
+    """Fetch execution status by execution ID."""
+    api_key = _get_api_key()
+    return _request_with_retry("GET", f"/execution/{execution_id}/status", api_key)

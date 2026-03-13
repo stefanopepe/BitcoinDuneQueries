@@ -70,9 +70,3 @@ results AS (
 )
 
 SELECT * FROM results
-UNION ALL
-SELECT
-    'multi_protocol_entity_count',
-    0,
-    0
-WHERE NOT EXISTS (SELECT 1 FROM results)

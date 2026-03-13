@@ -44,6 +44,34 @@ Codex setup:
 codex mcp add dune_prod --url "https://api.dune.com/mcp/v1?api_key=$DUNE_API_KEY"
 ```
 
+Then set Codex MCP timeout (recommended by Dune guide to avoid `Transport closed` on long calls):
+
+```toml
+[mcp_servers.dune_prod]
+url = "https://api.dune.com/mcp/v1?api_key=<YOUR_DUNE_API_KEY>"
+tool_timeout_sec = 300
+```
+
+Codex manual setup (fallback if `codex mcp add` cannot write `~/.codex/config.toml`):
+
+1. Ensure `~/.codex/config.toml` exists.
+2. Add this block:
+
+```toml
+[mcp_servers.dune_prod]
+url = "https://api.dune.com/mcp/v1?api_key=<YOUR_DUNE_API_KEY>"
+tool_timeout_sec = 300
+```
+
+3. Verify:
+
+```bash
+codex mcp list
+codex mcp get dune_prod
+```
+
+Expected: `dune_prod` is `enabled` with URL `https://api.dune.com/mcp/v1?...`.
+
 Claude Code setup:
 
 ```bash
@@ -51,6 +79,19 @@ claude mcp add --scope user --transport http dune_prod https://api.dune.com/mcp/
 ```
 
 Use direct REST API calls only when MCP is unavailable or insufficient for the task.
+
+Troubleshooting:
+
+- `failed to persist config.toml ... Operation not permitted`:
+  - Codex cannot write `~/.codex/config.toml` in your environment.
+  - Apply the manual `config.toml` block above, or run Codex in a terminal/session with permission to write `~/.codex`.
+- `Transport closed` during MCP calls:
+  - Set `tool_timeout_sec = 300` in `[mcp_servers.dune_prod]` (official Dune MCP guidance for Codex).
+- `HTTP 403` on `/api/v1/query/{id}`:
+  - This means the key used does not have query-management access (for example free-plan key).
+  - Use the canonical paid-plan key in `DUNE_API_KEY`.
+  - If you keep a low-priority key, store it as `DUNE_API_KEY_FREE` and do not use it for parity/metadata checks.
+- Keep API keys out of git and shell history when possible; prefer env-var expansion over literal keys.
 
 ## Development Pipeline
 
@@ -97,8 +138,10 @@ cp .env.example .env
 
 # Run smoke tests
 python -m scripts.smoke_runner --list          # List available tests
-python -m scripts.smoke_runner --test <name>   # Run specific test
-python -m scripts.smoke_runner --all           # Run all tests
+python -m scripts.smoke_runner --test <name>   # Run specific test (window defaults to 90d)
+python -m scripts.smoke_runner --all           # Run Base core tier (default scope)
+python -m scripts.smoke_runner --all --tier serving --chain base
+python -m scripts.smoke_runner --inventory-only --chain base --tier all
 ```
 
 ### 4. Cost Estimation

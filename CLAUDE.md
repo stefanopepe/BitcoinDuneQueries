@@ -84,6 +84,10 @@ export DUNE_API_KEY="your_api_key_here"
 # Codex
 codex mcp add dune_prod --url "https://api.dune.com/mcp/v1?api_key=$DUNE_API_KEY"
 
+# Codex recommended timeout (Dune MCP guide)
+# Add under [mcp_servers.dune_prod] in ~/.codex/config.toml:
+# tool_timeout_sec = 300
+
 # Claude Code
 claude mcp add --scope user --transport http dune_prod https://api.dune.com/mcp/v1 --header "x-dune-api-key: $DUNE_API_KEY"
 ```

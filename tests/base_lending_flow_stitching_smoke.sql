@@ -122,11 +122,3 @@ results AS (
 )
 
 SELECT * FROM results
-UNION ALL
-SELECT
-    'same_tx_flow_count',
-    'none',
-    'none',
-    0,
-    0
-WHERE NOT EXISTS (SELECT 1 FROM results)
